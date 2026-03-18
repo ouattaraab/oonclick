@@ -1,9 +1,14 @@
 # ========================
 # Backend Laravel (oonclick-api)
 # ========================
+# Tous les fichiers .env sauf .env.example
 oonclick-api/.env
 oonclick-api/.env.*
 !oonclick-api/.env.example
+# Sécurité — ne jamais versionner ces fichiers même s'ils sont créés par erreur
+oonclick-api/.env.local
+oonclick-api/.env.production
+oonclick-api/.env.staging
 oonclick-api/vendor/
 oonclick-api/node_modules/
 oonclick-api/storage/logs/*
@@ -41,3 +46,28 @@ oonclick-mobile/pubspec.lock
 *.swp
 *.swo
 Thumbs.db
+
+# ========================
+# Secrets — ne JAMAIS versionner
+# ========================
+# Clés et certificats
+*.pem
+*.p12
+*.pfx
+*.key
+*.crt
+*.cer
+google-services.json
+GoogleService-Info.plist
+firebase-credentials.json
+
+# Fichiers de credentials divers
+*credentials*
+*secrets*
+*secret*
+*.keystore
+service-account*.json
+
+# Outils de scan locaux
+.gitleaks.toml
+.secrets.baseline

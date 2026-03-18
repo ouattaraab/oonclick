@@ -1,8 +1,22 @@
 *.log
 .DS_Store
+# Tous les .env sauf .env.example
 .env
+.env.*
+!.env.example
 .env.backup
 .env.production
+.env.staging
+.env.local
+# Secrets Firebase / Google
+google-services.json
+GoogleService-Info.plist
+firebase-credentials.json
+# Clés et certificats
+*.pem
+*.p12
+*.key
+service-account*.json
 .phpactor.json
 .phpunit.result.cache
 /.fleet
