@@ -1,0 +1,74 @@
+name: oonclick
+description: "oon.click — Plateforme mobile de publicité rémunérée"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # Navigation
+  go_router: ^14.0.0
+
+  # State management
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # HTTP & API
+  dio: ^5.7.0
+  pretty_dio_logger: ^1.4.0
+
+  # Storage local
+  hive_flutter: ^1.1.0
+  flutter_secure_storage: ^9.2.2
+
+  # Vidéo player
+  video_player: ^2.9.2
+  chewie: ^1.8.5
+
+  # Images
+  cached_network_image: ^3.4.1
+
+  # Device info & connectivité
+  device_info_plus: ^11.1.1
+  connectivity_plus: ^6.1.1
+  crypto: ^3.0.3
+
+  # UI
+  cupertino_icons: ^1.0.8
+  flutter_svg: ^2.0.10
+  shimmer: ^3.0.0
+  fl_chart: ^0.69.0
+  lottie: ^3.1.3
+
+  # Notifications temps réel
+  pusher_channels_flutter: ^2.1.0
+
+  # Utilitaires
+  intl: ^0.20.2
+  equatable: ^2.0.5
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+  logger: ^2.4.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  riverpod_generator: ^2.6.1
+  freezed: ^2.5.7
+  json_serializable: ^6.8.0
+  build_runner: ^2.4.13
+  mocktail: ^1.0.4
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/animations/

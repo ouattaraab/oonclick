@@ -1,0 +1,43 @@
+# ========================
+# Backend Laravel (oonclick-api)
+# ========================
+oonclick-api/.env
+oonclick-api/.env.*
+!oonclick-api/.env.example
+oonclick-api/vendor/
+oonclick-api/node_modules/
+oonclick-api/storage/logs/*
+oonclick-api/storage/framework/cache/*
+oonclick-api/storage/framework/sessions/*
+oonclick-api/storage/framework/views/*
+oonclick-api/bootstrap/cache/*.php
+oonclick-api/public/storage
+oonclick-api/.phpunit.result.cache
+oonclick-api/coverage/
+
+# ========================
+# Mobile Flutter (oonclick-mobile)
+# ========================
+oonclick-mobile/.dart_tool/
+oonclick-mobile/.flutter-plugins
+oonclick-mobile/.flutter-plugins-dependencies
+oonclick-mobile/build/
+oonclick-mobile/ios/Pods/
+oonclick-mobile/ios/.symlinks/
+oonclick-mobile/android/.gradle/
+oonclick-mobile/android/local.properties
+oonclick-mobile/android/key.properties
+oonclick-mobile/*.keystore
+oonclick-mobile/*.jks
+oonclick-mobile/pubspec.lock
+
+# ========================
+# Global
+# ========================
+.DS_Store
+*.log
+.idea/
+.vscode/
+*.swp
+*.swo
+Thumbs.db
