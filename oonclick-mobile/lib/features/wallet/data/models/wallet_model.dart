@@ -19,14 +19,16 @@ class WalletModel {
   final List<TransactionModel> recentTransactions;
 
   factory WalletModel.fromJson(Map<String, dynamic> json) {
+    // Backend returns { "wallet": {...}, "recent_transactions": [...] }
     final data = json['data'] as Map<String, dynamic>? ?? json;
+    final walletData = data['wallet'] as Map<String, dynamic>? ?? data;
     final txList = data['recent_transactions'] as List<dynamic>? ?? [];
 
     return WalletModel(
-      balance: (data['balance'] as num?)?.toInt() ?? 0,
-      totalEarned: (data['total_earned'] as num?)?.toInt() ?? 0,
+      balance: (walletData['balance'] as num?)?.toInt() ?? 0,
+      totalEarned: (walletData['total_earned'] as num?)?.toInt() ?? 0,
       totalWithdrawn:
-          (data['total_withdrawn'] as num?)?.toInt() ?? 0,
+          (walletData['total_withdrawn'] as num?)?.toInt() ?? 0,
       recentTransactions: txList
           .whereType<Map<String, dynamic>>()
           .map(TransactionModel.fromJson)

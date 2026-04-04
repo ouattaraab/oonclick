@@ -4,12 +4,18 @@ namespace App\Modules\Diffusion\Services;
 
 use App\Models\AdView;
 use App\Models\Campaign;
+use App\Models\CampaignFormat;
 use App\Models\CampaignTarget;
+use App\Models\Coupon;
 use App\Models\DeviceFingerprint;
+use App\Models\FeatureSetting;
 use App\Models\User;
+use App\Models\UserCoupon;
 use App\Modules\Diffusion\Jobs\CompleteCampaignJob;
 use App\Modules\Payment\Services\EscrowService;
 use App\Modules\Payment\Services\WalletService;
+use App\Services\GamificationService;
+use App\Services\MissionService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -18,6 +24,7 @@ class ViewTrackingService
     public function __construct(
         private readonly WalletService $walletService,
         private readonly EscrowService $escrowService,
+        private readonly GamificationService $gamificationService,
     ) {}
 
     /**
@@ -74,9 +81,17 @@ class ViewTrackingService
             return ['allowed' => false, 'reason' => 'Limite horaire atteinte'];
         }
 
-        // 6. Limite journalière
-        $maxViewsPerDay = config('oonclick.max_views_per_day', 30);
-        $viewsLastDay   = AdView::where('subscriber_id', $subscriber->id)
+        // 6. Limite journalière — augmentée selon le niveau si la feature 'levels' est activée
+        if (FeatureSetting::isEnabled('levels')) {
+            $levelConfig    = FeatureSetting::getConfig('levels');
+            $userLevel      = $this->gamificationService->getUserLevel($subscriber);
+            $levelData      = collect($levelConfig['levels'] ?? [])->firstWhere('level', $userLevel);
+            $maxViewsPerDay = $levelData['max_views'] ?? config('oonclick.max_views_per_day', 30);
+        } else {
+            $maxViewsPerDay = config('oonclick.max_views_per_day', 30);
+        }
+
+        $viewsLastDay = AdView::where('subscriber_id', $subscriber->id)
             ->where('started_at', '>=', now()->subDay())
             ->count();
 
@@ -197,12 +212,43 @@ class ViewTrackingService
             return ['credited' => false, 'amount' => 0, 'reason' => 'Durée de visionnage insuffisante'];
         }
 
-        // 4. Calculer le montant selon le multiplicateur de format
-        $multiplier      = config('oonclick.format_multipliers')[$campaign->format] ?? 1.0;
-        $subscriberEarn  = config('oonclick.subscriber_earn', 60);
-        $subscriberAmount = (int) floor($subscriberEarn * $multiplier);
-        $costPerView     = $campaign->cost_per_view ?? config('oonclick.cost_per_view', 100);
-        $platformFee     = $costPerView - $subscriberAmount;
+        // 4. Calculer le montant selon le multiplicateur de format (depuis la base de données)
+        $formatMultiplier = CampaignFormat::getMultiplier($campaign->format);
+        $subscriberEarn   = config('oonclick.subscriber_earn', 60);
+        $baseAmount       = (int) floor($subscriberEarn * $formatMultiplier);
+
+        // Appliquer le multiplicateur de niveau si la feature 'levels' est activée
+        $earningMultiplier = 1.0;
+        if (FeatureSetting::isEnabled('levels')) {
+            $levelConfig       = FeatureSetting::getConfig('levels');
+            $subscriber        = $adView->subscriber;
+            $userLevel         = $this->gamificationService->getUserLevel($subscriber);
+            $levelData         = collect($levelConfig['levels'] ?? [])->firstWhere('level', $userLevel);
+            $earningMultiplier = (float) ($levelData['multiplier'] ?? 1.0);
+        }
+
+        // Appliquer le multiplicateur de streak si la feature 'streak' est activée
+        $streakMultiplier = 1.0;
+        if (FeatureSetting::isEnabled('streak')) {
+            $streakConfig     = FeatureSetting::getConfig('streak');
+            $multiplierThreshold = $streakConfig['streak_multiplier_threshold'] ?? 7;
+            $streakMultiplierValue = (float) ($streakConfig['streak_multiplier'] ?? 1.0);
+
+            // Récupérer le streak courant de l'abonné (streak_day du dernier check-in)
+            $subscriber       = $adView->subscriber ?? User::find($adView->subscriber_id);
+            $lastCheckin      = \App\Models\DailyCheckin::where('user_id', $subscriber->id)
+                ->latest('checked_in_at')
+                ->first();
+            $currentStreak    = $lastCheckin?->streak_day ?? 0;
+
+            if ($currentStreak >= $multiplierThreshold) {
+                $streakMultiplier = $streakMultiplierValue;
+            }
+        }
+
+        $subscriberAmount = (int) floor($baseAmount * $earningMultiplier * $streakMultiplier);
+        $costPerView      = $campaign->cost_per_view ?? config('oonclick.cost_per_view', 100);
+        $platformFee      = $costPerView - $subscriberAmount;
 
         // S'assurer que les frais plateforme ne sont pas négatifs
         if ($platformFee < 0) {
@@ -255,11 +301,59 @@ class ViewTrackingService
             }
         });
 
+        // Diffuser la progression en temps réel pour la page de détail annonceur
+        // Hors transaction — une erreur de broadcast ne doit pas rollback le crédit
+        try {
+            event(new \App\Events\CampaignProgressUpdated($campaign->fresh()));
+        } catch (\Throwable $e) {
+            Log::warning("CampaignProgressUpdated broadcast failed for campaign #{$campaign->id}: {$e->getMessage()}");
+        }
+
+        // Attribuer les XP pour vue complétée — +10 XP par pub (US-050)
+        // Hors transaction pour ne pas bloquer en cas d'erreur non critique
+        $subscriber = $adView->subscriber;
+        try {
+            $this->gamificationService->awardXp($subscriber, 10, "Vue pub #{$campaign->id}");
+        } catch (\Throwable $e) {
+            Log::warning("GamificationService XP award failed for view #{$adView->id}: {$e->getMessage()}");
+        }
+
+        // Incrémenter la progression des missions de type 'views'
+        try {
+            app(MissionService::class)->incrementProgress($subscriber, 'views');
+        } catch (\Throwable $e) {
+            Log::warning("MissionService incrementProgress failed for view #{$adView->id}: {$e->getMessage()}");
+        }
+
         // Notifier l'abonné de son crédit — hors transaction pour ne pas bloquer
         $newBalance = $this->walletService->getBalance($adView->subscriber_id);
         $adView->subscriber->notify(
             new \App\Notifications\CreditReceivedNotification($subscriberAmount, $adView->campaign_id, $newBalance)
         );
+
+        // Collecter automatiquement un coupon lié à la campagne si la feature est activée
+        try {
+            if (FeatureSetting::isEnabled('coupons')) {
+                $couponConfig = FeatureSetting::getConfig('coupons');
+                if ($couponConfig['auto_collect_on_view'] ?? true) {
+                    $coupon = Coupon::where('campaign_id', $campaign->id)
+                        ->where('is_active', true)
+                        ->first();
+                    if ($coupon) {
+                        $maxPerUser      = $couponConfig['max_coupons_per_user'] ?? 20;
+                        $userCouponCount = UserCoupon::where('user_id', $adView->subscriber_id)->count();
+                        if ($userCouponCount < $maxPerUser) {
+                            UserCoupon::firstOrCreate(
+                                ['user_id' => $adView->subscriber_id, 'coupon_id' => $coupon->id],
+                                ['collected_at' => now()]
+                            );
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning("Coupon auto-collect failed for view #{$adView->id}: {$e->getMessage()}");
+        }
 
         // Dispatch asynchrone — ne bloque pas la réponse et est hors transaction
         // pour éviter qu'une erreur dans le job ne rollback le crédit.

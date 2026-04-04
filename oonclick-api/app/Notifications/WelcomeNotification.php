@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\FcmChannel;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -29,7 +30,19 @@ class WelcomeNotification extends Notification implements ShouldQueue
      */
     public function via(mixed $notifiable): array
     {
-        return ['database', 'mail'];
+        $channels = ['database'];
+
+        // C6 = emails promotionnels
+        if (\App\Models\UserConsent::hasConsent($notifiable->id, 'C6')) {
+            $channels[] = 'mail';
+        }
+
+        // C5 = notifications push
+        if (\App\Models\UserConsent::hasConsent($notifiable->id, 'C5')) {
+            $channels[] = FcmChannel::class;
+        }
+
+        return $channels;
     }
 
     /**
@@ -64,5 +77,23 @@ class WelcomeNotification extends Notification implements ShouldQueue
             ->line('**3. Regardez votre première pub** — Chaque visionnage complet vous rapporte des FCFA directement sur votre wallet.')
             ->action('Compléter mon profil', url('/'))
             ->line('Merci de rejoindre la communauté oon.click. Bonne chance !');
+    }
+
+    /**
+     * Payload FCM pour la notification push.
+     *
+     * @param mixed $notifiable
+     * @return array{title: string, body: string, data: array}
+     */
+    public function toFcm(mixed $notifiable): array
+    {
+        return [
+            'title' => 'Bienvenue sur oon.click !',
+            'body'  => 'Votre compte est activé. Complétez votre profil pour recevoir vos premières publicités.',
+            'data'  => [
+                'type'   => 'welcome',
+                'screen' => 'profile',
+            ],
+        ];
     }
 }

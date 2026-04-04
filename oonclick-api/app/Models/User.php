@@ -2,7 +2,10 @@
 
 namespace App\Models;
 
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -11,7 +14,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
     use HasApiTokens, HasFactory, HasRoles, Notifiable, SoftDeletes;
 
@@ -27,9 +30,24 @@ class User extends Authenticatable
         'role',
         'kyc_level',
         'trust_score',
+        'xp_points',
         'is_active',
         'is_suspended',
         'password',
+        'avatar_path',
+        'company',
+        'sector',
+        'rccm',
+        'nif',
+        'website',
+        'address',
+        'advertiser_type',
+        'birth_date',
+        'city',
+        'id_number',
+        'company_size',
+        'monthly_budget',
+        'target_sectors',
     ];
 
     /**
@@ -55,6 +73,8 @@ class User extends Authenticatable
             'phone_verified_at'   => 'datetime',
             'email_verified_at'   => 'datetime',
             'password'            => 'hashed',
+            'birth_date'          => 'date',
+            'target_sectors'      => 'array',
         ];
     }
 
@@ -90,6 +110,34 @@ class User extends Authenticatable
     public function fraudEvents(): HasMany
     {
         return $this->hasMany(FraudEvent::class);
+    }
+
+    public function kycDocuments(): HasMany
+    {
+        return $this->hasMany(KycDocument::class);
+    }
+
+    public function fcmTokens(): HasMany
+    {
+        return $this->hasMany(FcmToken::class);
+    }
+
+    /**
+     * Badges gagnés par cet utilisateur (US-050).
+     */
+    public function badges(): BelongsToMany
+    {
+        return $this->belongsToMany(Badge::class, 'user_badges')
+            ->withPivot('earned_at')
+            ->withTimestamps();
+    }
+
+    /**
+     * Factures de l'utilisateur (US-047).
+     */
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
     }
 
     // =========================================================================
@@ -128,6 +176,17 @@ class User extends Authenticatable
     public function isAdmin(): bool
     {
         return $this->role === 'admin';
+    }
+
+    public function canAccessPanel(Panel $panel): bool
+    {
+        if ($panel->getId() === 'advertiser') {
+            return $this->role === 'advertiser';
+        }
+
+        // Panel admin
+        return $this->role === 'admin'
+            || $this->hasAnyRole(['super_admin', 'moderateur', 'analyste', 'support', 'comptable']);
     }
 
     public function isPhoneVerified(): bool

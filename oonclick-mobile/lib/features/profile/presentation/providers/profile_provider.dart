@@ -4,6 +4,7 @@ import '../../../../core/api/api_exception.dart';
 import '../../../auth/data/models/user_model.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/models/profile_stats_model.dart';
+import '../../data/models/referral_tree_model.dart';
 import '../../data/repositories/profile_repository.dart';
 
 // ---------------------------------------------------------------------------
@@ -35,7 +36,7 @@ class ProfileNotifier extends AsyncNotifier<UserModel?> {
 
       // Mettre à jour authProvider pour garder la source de vérité cohérente.
       final authNotifier = ref.read(authProvider.notifier);
-      await authNotifier.completeProfile({});
+      authNotifier.updateUserLocally(user);
 
       state = AsyncData(user);
     } on ApiException catch (e) {
@@ -70,4 +71,17 @@ final profileStatsProvider = FutureProvider<ProfileStatsModel>((ref) async {
 
   final repo = ref.read(profileRepositoryProvider);
   return repo.getStats();
+});
+
+// ---------------------------------------------------------------------------
+// Arbre de parrainage
+// ---------------------------------------------------------------------------
+
+/// Charge l'arbre de parrainage à 2 niveaux depuis GET /referrals/tree.
+///
+/// Se réinitialise automatiquement lorsque le profil change.
+final referralTreeProvider = FutureProvider<ReferralTreeModel>((ref) async {
+  ref.watch(profileProvider);
+  final repo = ref.read(profileRepositoryProvider);
+  return repo.getReferralTree();
 });

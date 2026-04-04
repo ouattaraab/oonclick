@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/api/api_client.dart';
 import '../../../../core/api/api_exception.dart';
+import '../../../../core/services/google_sign_in_service.dart';
 import '../../../../core/services/secure_storage_service.dart';
 import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
@@ -89,13 +90,14 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
   // Register
   // ---------------------------------------------------------------------------
 
-  Future<void> register(String phone, String role) async {
+  Future<void> register(String identifier, String role,
+      {String method = 'phone'}) async {
     state = AsyncData(state.valueOrNull?.copyWith(isLoading: true, clearError: true) ??
         const AuthState(isLoading: true));
 
     try {
       final repo = ref.read(authRepositoryProvider);
-      await repo.register(phone, role);
+      await repo.register(identifier, role, method: method);
       state = AsyncData(
           state.valueOrNull?.copyWith(isLoading: false) ??
               const AuthState());
@@ -157,6 +159,115 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
   }
 
   // ---------------------------------------------------------------------------
+  // Verify with Firebase (Phone Auth)
+  // ---------------------------------------------------------------------------
+
+  /// Verifies a Firebase ID token with the backend.
+  /// Returns `true` on success.
+  Future<bool> verifyWithFirebase({
+    required String phone,
+    required String firebaseIdToken,
+    required String type,
+    String? fingerprint,
+    String? platform,
+  }) async {
+    state = AsyncData(state.valueOrNull?.copyWith(isLoading: true, clearError: true) ??
+        const AuthState(isLoading: true));
+
+    try {
+      final repo = ref.read(authRepositoryProvider);
+      final authResponse = await repo.verifyWithFirebase(
+        phone: phone,
+        firebaseIdToken: firebaseIdToken,
+        type: type,
+        fingerprint: fingerprint,
+        platform: platform,
+      );
+
+      final storage = ref.read(secureStorageProvider);
+      await storage.saveToken(authResponse.token);
+      await storage.saveUser(authResponse.user.toJsonString());
+
+      ref.read(authTokenProvider.notifier).state = authResponse.token;
+
+      state = AsyncData(AuthState(
+        token: authResponse.token,
+        user: authResponse.user,
+        walletBalance: authResponse.wallet?.balance ?? 0,
+        isLoading: false,
+      ));
+
+      return true;
+    } on ApiException catch (e) {
+      state = AsyncData(
+          state.valueOrNull?.copyWith(isLoading: false, error: e.message) ??
+              AuthState(error: e.message));
+      return false;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Google Sign-In
+  // ---------------------------------------------------------------------------
+
+  /// Signs in with Google. Returns `true` on success, `false` if cancelled.
+  Future<bool> signInWithGoogle({
+    String role = 'subscriber',
+    String? fingerprint,
+    String? platform,
+  }) async {
+    state = AsyncData(state.valueOrNull?.copyWith(isLoading: true, clearError: true) ??
+        const AuthState(isLoading: true));
+
+    try {
+      final googleService = ref.read(googleSignInServiceProvider);
+      final result = await googleService.signIn();
+
+      if (result == null) {
+        // User cancelled
+        state = AsyncData(
+            state.valueOrNull?.copyWith(isLoading: false) ?? const AuthState());
+        return false;
+      }
+
+      final repo = ref.read(authRepositoryProvider);
+      final authResponse = await repo.loginWithGoogle(
+        firebaseIdToken: result.firebaseIdToken,
+        email: result.email,
+        name: result.displayName,
+        role: role,
+        fingerprint: fingerprint,
+        platform: platform,
+      );
+
+      final storage = ref.read(secureStorageProvider);
+      await storage.saveToken(authResponse.token);
+      await storage.saveUser(authResponse.user.toJsonString());
+
+      ref.read(authTokenProvider.notifier).state = authResponse.token;
+
+      state = AsyncData(AuthState(
+        token: authResponse.token,
+        user: authResponse.user,
+        walletBalance: authResponse.wallet?.balance ?? 0,
+        isLoading: false,
+      ));
+
+      return true;
+    } on ApiException catch (e) {
+      state = AsyncData(
+          state.valueOrNull?.copyWith(isLoading: false, error: e.message) ??
+              AuthState(error: e.message));
+      return false;
+    } catch (e) {
+      state = AsyncData(
+          state.valueOrNull?.copyWith(isLoading: false, error: e.toString()) ??
+              AuthState(error: e.toString()));
+      return false;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Login
   // ---------------------------------------------------------------------------
 
@@ -199,6 +310,14 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
   // ---------------------------------------------------------------------------
   // Complete profile
   // ---------------------------------------------------------------------------
+
+  /// Met à jour l'utilisateur localement sans appeler l'API.
+  void updateUserLocally(UserModel user) {
+    final storage = ref.read(secureStorageProvider);
+    storage.saveUser(user.toJsonString());
+    state = AsyncData(state.valueOrNull?.copyWith(user: user) ??
+        AuthState(user: user));
+  }
 
   Future<void> completeProfile(Map<String, dynamic> data) async {
     state = AsyncData(state.valueOrNull?.copyWith(isLoading: true, clearError: true) ??

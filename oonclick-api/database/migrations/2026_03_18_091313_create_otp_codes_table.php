@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('otp_codes', function (Blueprint $table) {
             $table->id();
             $table->string('phone');
-            $table->string('code', 6);
+            $table->string('code', 255); // bcrypt hash du code OTP
             $table->enum('type', ['registration', 'login', 'withdrawal', 'kyc'])->default('registration');
             $table->timestamp('expires_at');
             $table->timestamp('used_at')->nullable();

@@ -237,6 +237,48 @@ class CampaignController extends Controller
     }
 
     /**
+     * Duplique une campagne existante en un nouveau brouillon (US-025).
+     *
+     * Les champs copiés : title (suffixé "(copie)"), description, format,
+     * budget, cost_per_view, max_views, targeting, duration_seconds,
+     * thumbnail_url.
+     *
+     * Les champs NON copiés : status (→ 'draft'), views_count (→ 0),
+     * starts_at, ends_at, approved_at, approved_by, rejection_reason,
+     * media_path, media_url (l'annonceur doit ré-uploader).
+     */
+    public function duplicate(Request $request, int $id): JsonResponse
+    {
+        $user     = $request->user();
+        $original = Campaign::findOrFail($id);
+
+        if (! $user->isAdmin() && $original->advertiser_id !== $user->id) {
+            return response()->json(['message' => 'Accès non autorisé à cette campagne.'], 403);
+        }
+
+        $copy = Campaign::create([
+            'advertiser_id'    => $user->id,
+            'title'            => $original->title . ' (copie)',
+            'description'      => $original->description,
+            'format'           => $original->format,
+            'status'           => 'draft',
+            'budget'           => $original->budget,
+            'cost_per_view'    => $original->cost_per_view,
+            'max_views'        => $original->max_views,
+            'views_count'      => 0,
+            'duration_seconds' => $original->duration_seconds,
+            'targeting'        => $original->targeting,
+            'thumbnail_url'    => $original->thumbnail_url,
+            // media_path et media_url intentionnellement omis
+        ]);
+
+        return response()->json([
+            'message'  => 'Campagne dupliquée avec succès.',
+            'campaign' => $copy,
+        ], 201);
+    }
+
+    /**
      * Tente d'extraire la durée d'une vidéo via ffprobe et met à jour la campagne.
      * L'opération est silencieuse si ffprobe est absent ou échoue.
      */

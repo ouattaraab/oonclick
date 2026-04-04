@@ -87,6 +87,26 @@ class FeedRepository {
   }
 
   // ---------------------------------------------------------------------------
+  // Ad history (viewed ads)
+  // ---------------------------------------------------------------------------
+
+  /// GET /ads/history
+  Future<List<CampaignModel>> getHistory() async {
+    try {
+      final response = await _api.get<Map<String, dynamic>>('/ads/history');
+      final data = response.data as Map<String, dynamic>;
+      final rawList = data['data'] as List<dynamic>? ?? [];
+
+      return rawList
+          .whereType<Map<String, dynamic>>()
+          .map(CampaignModel.fromJson)
+          .toList();
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Start view
   // ---------------------------------------------------------------------------
 

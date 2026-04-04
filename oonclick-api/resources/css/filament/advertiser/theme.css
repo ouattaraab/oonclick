@@ -1,0 +1,291 @@
+@import 'tailwindcss';
+
+@source '../../../../vendor/filament/**/*.blade.php';
+
+/* =================================================================
+   ADVERTISER — DESIGN B: BOLD GRADIENT
+   Dark navy sidebar, gradient KPI cards, Nunito font, premium feel
+   ================================================================= */
+
+/* -----------------------------------------------------------------
+   1. SIDEBAR — Dark gradient navy
+   ----------------------------------------------------------------- */
+.fi-sidebar {
+    background: linear-gradient(180deg, #0B1929 0%, #0F2744 100%) !important;
+    border-right: none !important;
+}
+
+/* Brand */
+.fi-sidebar-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+.fi-logo, .fi-sidebar-header a {
+    color: #FFFFFF !important;
+}
+
+/* Nav group labels */
+.fi-sidebar-group-label {
+    color: #4B6A8F !important;
+    font-size: 0.625rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1.5px !important;
+}
+
+/* Nav items */
+.fi-sidebar-item-button {
+    color: #7B9BC5 !important;
+    border-radius: 10px !important;
+    font-weight: 700 !important;
+    transition: all 0.2s ease !important;
+}
+
+.fi-sidebar-item-button:hover {
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: #BAD4F0 !important;
+}
+
+.fi-sidebar-item-button[aria-current="page"],
+.fi-sidebar-item-button.fi-active {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(6, 182, 212, 0.15)) !important;
+    color: #FFFFFF !important;
+    font-weight: 700 !important;
+}
+
+/* Nav icons */
+.fi-sidebar-item-icon {
+    color: inherit !important;
+}
+
+/* Nav badges */
+.fi-sidebar-item-badge .fi-badge {
+    background: #3B82F6 !important;
+    color: #fff !important;
+    border-color: transparent !important;
+}
+
+/* Sidebar buttons */
+.fi-sidebar-close-btn,
+.fi-sidebar-open-btn,
+.fi-icon-btn {
+    color: #7B9BC5 !important;
+}
+
+.fi-sidebar-footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+/* -----------------------------------------------------------------
+   2. TOPBAR
+   ----------------------------------------------------------------- */
+.fi-topbar {
+    background: #FFFFFF !important;
+    border-bottom: 1px solid #E5E9F0 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+.fi-topbar nav {
+    background: transparent !important;
+}
+
+/* -----------------------------------------------------------------
+   3. CONTENT AREA
+   ----------------------------------------------------------------- */
+.fi-body {
+    background: #F0F4F8 !important;
+}
+
+.fi-main {
+    background: #F0F4F8 !important;
+}
+
+.fi-header-heading {
+    font-weight: 800 !important;
+    color: #0B1929 !important;
+}
+
+/* -----------------------------------------------------------------
+   4. KPI STATS — Gradient colored cards (Bold style)
+   ----------------------------------------------------------------- */
+.fi-wi-stats-overview-stat {
+    border: none !important;
+    border-radius: 16px !important;
+    overflow: hidden !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+    color: #FFFFFF !important;
+}
+
+/* Gradient backgrounds for each stat card */
+.fi-wi-stats-overview-stat:nth-child(1) {
+    background: linear-gradient(135deg, #3B82F6, #2563EB) !important;
+}
+
+.fi-wi-stats-overview-stat:nth-child(2) {
+    background: linear-gradient(135deg, #06B6D4, #0891B2) !important;
+}
+
+.fi-wi-stats-overview-stat:nth-child(3) {
+    background: linear-gradient(135deg, #10B981, #059669) !important;
+}
+
+.fi-wi-stats-overview-stat:nth-child(4) {
+    background: linear-gradient(135deg, #8B5CF6, #7C3AED) !important;
+}
+
+/* Fallback for more than 4 cards */
+.fi-wi-stats-overview-stat:nth-child(5) {
+    background: linear-gradient(135deg, #F59E0B, #D97706) !important;
+}
+
+.fi-wi-stats-overview-stat:nth-child(6) {
+    background: linear-gradient(135deg, #EF4444, #DC2626) !important;
+}
+
+.fi-wi-stats-overview-stat-value {
+    font-size: 1.75rem !important;
+    font-weight: 900 !important;
+    color: #FFFFFF !important;
+}
+
+.fi-wi-stats-overview-stat-label {
+    font-size: 0.6875rem !important;
+    font-weight: 700 !important;
+    color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.fi-wi-stats-overview-stat-description {
+    font-size: 0.625rem !important;
+    font-weight: 600 !important;
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* Override icon color in stat cards */
+.fi-wi-stats-overview-stat .fi-wi-stats-overview-stat-icon {
+    color: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* -----------------------------------------------------------------
+   5. CARDS & SECTIONS
+   ----------------------------------------------------------------- */
+.fi-section,
+.fi-ta-ctn {
+    background: #FFFFFF !important;
+    border: 1px solid #E5E9F0 !important;
+    border-radius: 16px !important;
+    box-shadow: none !important;
+}
+
+/* -----------------------------------------------------------------
+   6. TABLES
+   ----------------------------------------------------------------- */
+.fi-ta-header-cell {
+    font-size: 0.625rem !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    color: #8BA4C4 !important;
+    background: #F8FAFC !important;
+    border-bottom: 1px solid #E5E9F0 !important;
+}
+
+.fi-ta-cell {
+    font-size: 0.8125rem !important;
+    color: #334155 !important;
+    font-weight: 600 !important;
+    border-bottom: 1px solid #F0F3F7 !important;
+}
+
+.fi-ta-row:hover .fi-ta-cell {
+    background: #FAFCFF !important;
+}
+
+.fi-ta-row:last-child .fi-ta-cell {
+    border-bottom: none !important;
+}
+
+/* -----------------------------------------------------------------
+   7. BADGES
+   ----------------------------------------------------------------- */
+.fi-badge {
+    font-weight: 700 !important;
+    font-size: 0.6875rem !important;
+    border-radius: 8px !important;
+}
+
+/* -----------------------------------------------------------------
+   8. BUTTONS — Blue gradient
+   ----------------------------------------------------------------- */
+.fi-btn-primary,
+button[type="submit"].fi-btn {
+    background: linear-gradient(135deg, #3B82F6, #2563EB) !important;
+    border: none !important;
+    color: #FFFFFF !important;
+    font-weight: 700 !important;
+    border-radius: 10px !important;
+    box-shadow: 0 3px 10px rgba(59, 130, 246, 0.25) !important;
+}
+
+.fi-btn-primary:hover,
+button[type="submit"].fi-btn:hover {
+    box-shadow: 0 5px 16px rgba(59, 130, 246, 0.35) !important;
+}
+
+/* -----------------------------------------------------------------
+   9. FORM INPUTS
+   ----------------------------------------------------------------- */
+.fi-input {
+    border-width: 2px !important;
+    border-color: #E5E9F0 !important;
+    border-radius: 10px !important;
+}
+
+.fi-input:focus-within {
+    border-color: #3B82F6 !important;
+    box-shadow: none !important;
+}
+
+/* -----------------------------------------------------------------
+  10. CHART WIDGET
+   ----------------------------------------------------------------- */
+.fi-wi-chart {
+    background: #FFFFFF !important;
+    border: 1px solid #E5E9F0 !important;
+    border-radius: 16px !important;
+    box-shadow: none !important;
+}
+
+.fi-wi-chart-heading {
+    font-weight: 800 !important;
+    color: #0B1929 !important;
+}
+
+/* -----------------------------------------------------------------
+  11. LOGIN PAGE — Dark gradient
+   ----------------------------------------------------------------- */
+.fi-simple-main {
+    background: linear-gradient(160deg, #0B1929 0%, #0F2744 50%, #0B1929 100%) !important;
+}
+
+.fi-simple-main .fi-simple-page {
+    background: #FFFFFF !important;
+    border: 1px solid #1E3A5F !important;
+    border-radius: 16px !important;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* -----------------------------------------------------------------
+  12. MODALS
+   ----------------------------------------------------------------- */
+.fi-modal-window {
+    border-radius: 16px !important;
+}
+
+/* -----------------------------------------------------------------
+  13. PAGINATION
+   ----------------------------------------------------------------- */
+.fi-pagination-item-btn[aria-current="page"] {
+    background: #3B82F6 !important;
+    color: #FFFFFF !important;
+    font-weight: 700 !important;
+}

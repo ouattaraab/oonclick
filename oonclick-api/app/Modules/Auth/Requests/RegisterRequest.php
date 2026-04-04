@@ -14,18 +14,29 @@ class RegisterRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'phone'         => ['required', 'string', 'regex:/^\+?[0-9]{8,15}$/'],
+            'method'        => ['sometimes', 'in:phone,email'],
+            'phone'         => ['required_without:email', 'nullable', 'string', 'regex:/^\+?[0-9]{8,15}$/'],
+            'email'         => ['required_without:phone', 'nullable', 'email', 'max:255'],
             'role'          => ['required', 'in:subscriber,advertiser'],
             'name'          => ['required_if:role,advertiser', 'nullable', 'string', 'max:100'],
             'referral_code' => ['nullable', 'string', 'size:8', 'exists:subscriber_profiles,referral_code'],
+            // Granular consents sent from the mobile registration form
+            'consent_cgu'           => ['nullable', 'boolean'],
+            'consent_targeting'     => ['nullable', 'boolean'],
+            'consent_transfer'      => ['nullable', 'boolean'],
+            'consent_fingerprint'   => ['nullable', 'boolean'],
+            'consent_notifications' => ['nullable', 'boolean'],
+            'consent_marketing'     => ['nullable', 'boolean'],
         ];
     }
 
     public function messages(): array
     {
         return [
-            'phone.required'              => 'Le numéro de téléphone est requis.',
+            'phone.required_without'      => 'Le numéro de téléphone ou l\'adresse e-mail est requis.',
             'phone.regex'                 => 'Le format du numéro de téléphone est invalide.',
+            'email.required_without'      => 'L\'adresse e-mail ou le numéro de téléphone est requis.',
+            'email.email'                 => 'L\'adresse e-mail est invalide.',
             'role.required'               => 'Le rôle est requis.',
             'role.in'                     => 'Le rôle doit être subscriber ou advertiser.',
             'name.required_if'            => 'Le nom est requis pour un compte annonceur.',

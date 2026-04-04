@@ -9,8 +9,8 @@ class EnsureAdvertiser
 {
     public function handle(Request $request, Closure $next)
     {
-        if ($request->user()?->role !== 'advertiser') {
-            return response()->json(['message' => 'Accès réservé aux annonceurs'], 403);
+        if (!$request->user() || !in_array($request->user()->role, ['advertiser', 'admin'])) {
+            abort(403, 'Accès réservé aux annonceurs.');
         }
 
         return $next($request);

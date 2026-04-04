@@ -4,26 +4,38 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/services/device_service.dart';
+import '../../../../core/services/firebase_phone_auth_service.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../providers/auth_provider.dart';
 
 /// OTP verification screen.
 ///
-/// Receives [phone] and [type] (`register` | `login`) from route extras.
-/// Auto-submits when all 6 digits are filled.
+/// Supports two methods:
+/// - `phone` : Firebase Phone Auth (SMS envoyé par Firebase)
+/// - `email` : OTP backend (code envoyé par le serveur)
+///
+/// Receives route extras: phone/email, type, method, verificationId (phone only).
 class OtpVerificationScreen extends ConsumerStatefulWidget {
   const OtpVerificationScreen({
     super.key,
     required this.phone,
     required this.type,
+    this.method = 'phone',
+    this.email,
+    this.verificationId,
   });
 
   final String phone;
-
-  /// `register` or `login`
   final String type;
+
+  /// `phone` or `email`
+  final String method;
+  final String? email;
+  final String? verificationId;
 
   @override
   ConsumerState<OtpVerificationScreen> createState() =>
@@ -46,11 +58,14 @@ class _OtpVerificationScreenState
   bool _isLoading = false;
   String? _error;
 
+  /// `phone` = Firebase Phone Auth, `phone_backend` = OTP backend, `email` = OTP email
+  bool get _isFirebasePhone => widget.method == 'phone';
+  bool get _isPhoneMethod => widget.method == 'phone' || widget.method == 'phone_backend';
+
   @override
   void initState() {
     super.initState();
     _startTimer();
-    // Auto-focus first field.
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _focusNodes.first.requestFocus(),
     );
@@ -87,16 +102,20 @@ class _OtpVerificationScreenState
     });
   }
 
+  String get _timerDisplay {
+    final m = (_secondsLeft ~/ 60).toString().padLeft(2, '0');
+    final s = (_secondsLeft % 60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
   // ---------------------------------------------------------------------------
-  // OTP input helpers
+  // OTP helpers
   // ---------------------------------------------------------------------------
 
-  String get _currentCode =>
-      _controllers.map((c) => c.text).join();
+  String get _currentCode => _controllers.map((c) => c.text).join();
 
   void _onDigitChanged(int index, String value) {
     if (value.length > 1) {
-      // Paste scenario — distribute digits.
       final digits = value.replaceAll(RegExp(r'\D'), '');
       for (var i = 0; i < _codeLength && i < digits.length; i++) {
         _controllers[i].text = digits[i];
@@ -114,7 +133,6 @@ class _OtpVerificationScreenState
 
     setState(() => _error = null);
 
-    // Auto-submit when all fields are filled.
     if (_currentCode.length == _codeLength) {
       _submit();
     }
@@ -143,34 +161,16 @@ class _OtpVerificationScreenState
     });
 
     try {
-      final fingerprint =
-          await ref.read(deviceFingerprintProvider.future);
-      final platform =
-          await ref.read(deviceServiceProvider).getPlatform();
-
-      final success = await ref.read(authProvider.notifier).verifyOtp(
-            phone: widget.phone,
-            code: code,
-            type: widget.type,
-            fingerprint: fingerprint,
-            platform: platform,
-          );
-
-      if (!mounted) return;
-
-      if (success) {
-        final user = ref.read(currentUserProvider);
-        if (user != null && user.isSubscriber && user.name == null) {
-          context.go('/auth/complete-profile');
-        } else {
-          context.go('/feed');
-        }
+      if (_isFirebasePhone) {
+        await _submitPhoneOtp(code);
+      } else {
+        // phone_backend et email utilisent l'OTP backend
+        await _submitBackendOtp(code);
       }
     } catch (e) {
       setState(() {
         _error = e.toString();
         _isLoading = false;
-        // Clear fields on error.
         for (final c in _controllers) {
           c.clear();
         }
@@ -181,12 +181,100 @@ class _OtpVerificationScreenState
     }
   }
 
+  /// Vérification par Firebase Phone Auth.
+  Future<void> _submitPhoneOtp(String code) async {
+    final firebaseAuth = ref.read(firebasePhoneAuthProvider);
+
+    // Créer le credential Firebase avec le code saisi
+    final credential = await firebaseAuth.verifyCode(code);
+
+    // Signer avec Firebase
+    final userCred = await firebaseAuth.signInWithCredential(credential);
+    final idToken = await userCred.user?.getIdToken();
+
+    if (idToken == null) {
+      throw Exception('Impossible de récupérer le token Firebase.');
+    }
+
+    // Envoyer le token Firebase au backend pour créer/authentifier
+    final fingerprint = await ref.read(deviceFingerprintProvider.future);
+    final platform = await ref.read(deviceServiceProvider).getPlatform();
+
+    final success = await ref.read(authProvider.notifier).verifyWithFirebase(
+          phone: widget.phone,
+          firebaseIdToken: idToken,
+          type: widget.type,
+          fingerprint: fingerprint,
+          platform: platform,
+        );
+
+    if (!mounted) return;
+    if (success) {
+      _navigateAfterSuccess();
+    }
+  }
+
+  /// Vérification par OTP backend (phone_backend ou email).
+  Future<void> _submitBackendOtp(String code) async {
+    final fingerprint = await ref.read(deviceFingerprintProvider.future);
+    final platform = await ref.read(deviceServiceProvider).getPlatform();
+
+    // Utilise le phone ou l'email selon la méthode
+    final identifier = _isPhoneMethod ? widget.phone : (widget.email ?? '');
+
+    final success = await ref.read(authProvider.notifier).verifyOtp(
+          phone: identifier,
+          code: code,
+          type: widget.type,
+          fingerprint: fingerprint,
+          platform: platform,
+        );
+
+    if (!mounted) return;
+    if (success) {
+      _navigateAfterSuccess();
+    }
+  }
+
+  void _navigateAfterSuccess() {
+    final user = ref.read(currentUserProvider);
+    if (user != null && user.isSubscriber && user.name == null) {
+      context.go('/auth/complete-profile');
+    } else {
+      context.go('/feed');
+    }
+  }
+
   Future<void> _resend() async {
     if (!_canResend) return;
     try {
-      await ref
-          .read(authRepositoryProvider)
-          .resendOtp(widget.phone, widget.type);
+      if (_isFirebasePhone) {
+        // Renvoyer via Firebase Phone Auth
+        final firebaseAuth = ref.read(firebasePhoneAuthProvider);
+        final completer = Completer<void>();
+
+        firebaseAuth.resendCode(
+          phoneNumber: widget.phone,
+          onCodeSent: (verificationId) {
+            if (!completer.isCompleted) completer.complete();
+          },
+          onAutoVerified: (_) {},
+          onError: (error) {
+            if (!completer.isCompleted) {
+              completer.completeError(Exception(error));
+            }
+          },
+        );
+
+        await completer.future;
+      } else {
+        // Renvoyer via backend (phone_backend ou email)
+        final identifier = _isPhoneMethod ? widget.phone : (widget.email ?? '');
+        await ref
+            .read(authRepositoryProvider)
+            .resendOtp(identifier, widget.type);
+      }
+
       if (!mounted) return;
       _startTimer();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -197,7 +285,7 @@ class _OtpVerificationScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.toString()),
-          backgroundColor: AppTheme.error,
+          backgroundColor: AppColors.danger,
         ),
       );
     }
@@ -207,156 +295,257 @@ class _OtpVerificationScreenState
   // Build
   // ---------------------------------------------------------------------------
 
-  String get _maskedPhone {
-    // "+225 07 01 23 45 67" → "+225 XX XXX XX XX"
-    if (widget.phone.length < 4) return widget.phone;
-    final prefix = widget.phone.substring(0, 4); // +225
-    final rest = widget.phone.substring(4);
-    if (rest.length < 8) return widget.phone;
-    return '$prefix XX XXX ${rest.substring(rest.length - 4, rest.length - 2)} '
-        '${rest.substring(rest.length - 2)}';
+  String get _maskedIdentifier {
+    if (_isPhoneMethod) {
+      final phone = widget.phone;
+      if (phone.length < 4) return phone;
+      final prefix = phone.substring(0, 4);
+      final rest = phone.substring(4);
+      if (rest.length < 8) return phone;
+      return '$prefix •• ••• ${rest.substring(rest.length - 4, rest.length - 2)} '
+          '${rest.substring(rest.length - 2)}';
+    } else {
+      // Masquer l'email : a***@gmail.com
+      final email = widget.email ?? '';
+      final parts = email.split('@');
+      if (parts.length != 2) return email;
+      final name = parts[0];
+      final domain = parts[1];
+      if (name.length <= 2) return email;
+      return '${name[0]}${'•' * (name.length - 1)}@$domain';
+    }
+  }
+
+  String get _headerSubtitle {
+    if (_isPhoneMethod) {
+      return 'Code envoyé par SMS au $_maskedIdentifier';
+    } else {
+      return 'Code envoyé par e-mail à $_maskedIdentifier';
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.bgPage,
-      appBar: AppBar(
-        title: const Text('Vérification'),
-        leading: BackButton(onPressed: () => context.pop()),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 40),
+      backgroundColor: AppColors.bg,
+      body: Column(
+        children: [
+          // Navy header with back button
+          _OtpHeader(
+            subtitle: _headerSubtitle,
+            icon: _isPhoneMethod ? Icons.sms_rounded : Icons.email_rounded,
+            onBack: () => context.pop(),
+          ),
 
-              // Icon
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: AppTheme.primary.withAlpha(20),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.sms_outlined,
-                  color: AppTheme.primary,
-                  size: 32,
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              Text(
-                'Entrez votre code',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.textPrimary,
+          // Body
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Info pill
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _isPhoneMethod
+                          ? AppColors.skyPale
+                          : const Color(0xFFFFF7ED),
+                      borderRadius: BorderRadius.circular(20),
                     ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Un SMS a été envoyé au',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.textSecondary,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _isPhoneMethod
+                              ? Icons.phone_android_rounded
+                              : Icons.email_rounded,
+                          size: 16,
+                          color: _isPhoneMethod
+                              ? AppColors.sky
+                              : const Color(0xFFF59E0B),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _isPhoneMethod
+                              ? 'Vérification par SMS'
+                              : 'Vérification par e-mail',
+                          style: GoogleFonts.nunito(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: _isPhoneMethod
+                                ? AppColors.sky2
+                                : const Color(0xFFD97706),
+                          ),
+                        ),
+                      ],
                     ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _maskedPhone,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.textPrimary,
-                    ),
-              ),
-
-              const SizedBox(height: 36),
-
-              // OTP fields
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(_codeLength, (index) {
-                  return Padding(
-                    padding: EdgeInsets.only(
-                        right: index < _codeLength - 1 ? 10 : 0),
-                    child: _OtpBox(
-                      controller: _controllers[index],
-                      focusNode: _focusNodes[index],
-                      onChanged: (v) => _onDigitChanged(index, v),
-                      onKeyEvent: (e) => _onKeyEvent(index, e),
-                      hasError: _error != null,
-                    ),
-                  );
-                }),
-              ),
-
-              // Inline error
-              if (_error != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  _error!,
-                  style: const TextStyle(
-                    color: AppTheme.error,
-                    fontSize: 13,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
 
-              const SizedBox(height: 32),
+                  const SizedBox(height: 24),
 
-              // Submit button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _submit,
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: Colors.white,
+                  // OTP boxes
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(_codeLength, (index) {
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          right: index < _codeLength - 1 ? 7 : 0,
+                        ),
+                        child: _OtpBox(
+                          controller: _controllers[index],
+                          focusNode: _focusNodes[index],
+                          onChanged: (v) => _onDigitChanged(index, v),
+                          onKeyEvent: (e) => _onKeyEvent(index, e),
+                          hasError: _error != null,
+                        ),
+                      );
+                    }),
+                  ),
+
+                  // Error
+                  if (_error != null) ...[
+                    const SizedBox(height: 14),
+                    Text(
+                      _error!,
+                      style: GoogleFonts.nunito(
+                        color: AppColors.danger,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+
+                  const SizedBox(height: 28),
+
+                  // Countdown
+                  _canResend
+                      ? GestureDetector(
+                          onTap: _resend,
+                          child: Text(
+                            'Renvoyer le code',
+                            style: GoogleFonts.nunito(
+                              color: AppColors.sky2,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
                           ),
                         )
-                      : const Text('Valider'),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Resend row
-              _canResend
-                  ? GestureDetector(
-                      onTap: _resend,
-                      child: const Text(
-                        'Renvoyer le code',
-                        style: TextStyle(
-                          color: AppTheme.primary,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
+                      : RichText(
+                          text: TextSpan(
+                            style: GoogleFonts.nunito(
+                              color: AppColors.muted,
+                              fontSize: 14,
+                            ),
+                            children: [
+                              const TextSpan(text: 'Renvoyer dans '),
+                              TextSpan(
+                                text: _timerDisplay,
+                                style: GoogleFonts.nunito(
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.navy,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    )
-                  : Text(
-                      'Renvoyer dans $_secondsLeft s',
-                      style: const TextStyle(
-                        color: AppTheme.textSecondary,
-                        fontSize: 14,
-                      ),
-                    ),
-            ],
+
+                  const SizedBox(height: 36),
+
+                  // Verify button
+                  SkyGradientButton(
+                    label: 'Vérifier',
+                    onPressed: _isLoading ? null : _submit,
+                    isLoading: _isLoading,
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Single OTP digit box
+// OTP header
+// ---------------------------------------------------------------------------
+
+class _OtpHeader extends StatelessWidget {
+  const _OtpHeader({
+    required this.subtitle,
+    required this.icon,
+    required this.onBack,
+  });
+
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(
+        20,
+        MediaQuery.of(context).padding.top + 16,
+        20,
+        24,
+      ),
+      decoration: const BoxDecoration(gradient: AppColors.navyGradient),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            onTap: onBack,
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha(30),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: Colors.white,
+                size: 16,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Icon(icon, color: Colors.white.withAlpha(200), size: 22),
+              const SizedBox(width: 8),
+              Text(
+                'Vérification OTP',
+                style: GoogleFonts.nunito(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: GoogleFonts.nunito(
+              fontSize: 13,
+              color: Colors.white.withAlpha(200),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Single OTP box
 // ---------------------------------------------------------------------------
 
 class _OtpBox extends StatelessWidget {
@@ -377,8 +566,8 @@ class _OtpBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 48,
-      height: 58,
+      width: 42,
+      height: 52,
       child: KeyboardListener(
         focusNode: FocusNode(),
         onKeyEvent: onKeyEvent,
@@ -390,32 +579,34 @@ class _OtpBox extends StatelessWidget {
           textAlign: TextAlign.center,
           maxLength: 1,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: AppTheme.textPrimary,
+          style: GoogleFonts.nunito(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: AppColors.navy,
           ),
           decoration: InputDecoration(
             counterText: '',
             contentPadding: EdgeInsets.zero,
             filled: true,
-            fillColor: AppTheme.bgCard,
+            fillColor: AppColors.white,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide(
-                color: hasError ? AppTheme.error : AppTheme.divider,
+                color: hasError ? AppColors.danger : AppColors.border,
+                width: 1.5,
               ),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide(
-                color: hasError ? AppTheme.error : AppTheme.divider,
+                color: hasError ? AppColors.danger : AppColors.border,
+                width: 1.5,
               ),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide(
-                color: hasError ? AppTheme.error : AppTheme.primary,
+                color: hasError ? AppColors.danger : AppColors.sky,
                 width: 2,
               ),
             ),

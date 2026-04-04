@@ -17,13 +17,26 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\ForceJsonResponse::class,
         ]);
 
+        $middleware->redirectGuestsTo('/panel/login');
+
         $middleware->alias([
-            'trust.score'       => \App\Modules\Fraud\Http\Middleware\CheckTrustScore::class,
-            'paystack.webhook'  => \App\Http\Middleware\VerifyPaystackWebhook::class,
-            'role.subscriber'   => \App\Http\Middleware\EnsureSubscriber::class,
-            'role.advertiser'   => \App\Http\Middleware\EnsureAdvertiser::class,
+            'trust.score'              => \App\Modules\Fraud\Http\Middleware\CheckTrustScore::class,
+            'paystack.webhook'         => \App\Http\Middleware\VerifyPaystackWebhook::class,
+            'role.subscriber'          => \App\Http\Middleware\EnsureSubscriber::class,
+            'role.advertiser'          => \App\Http\Middleware\EnsureAdvertiser::class,
+            'role.advertiser_or_admin' => \App\Http\Middleware\EnsureAdvertiserOrAdmin::class,
+            'audit.admin'              => \App\Http\Middleware\AuditAdminMiddleware::class,
+            'admin'                    => \App\Http\Middleware\EnsureAdmin::class,
+            'advertiser'               => \App\Http\Middleware\EnsureAdvertiser::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Forward unhandled exceptions to Sentry when a DSN is configured.
+        // This is a no-op when SENTRY_LARAVEL_DSN is empty, so local
+        // development and CI pipelines are unaffected.
+        if (app()->bound(\Sentry\Laravel\Integration::class)) {
+            $exceptions->reportable(function (\Throwable $e): void {
+                \Sentry\Laravel\Integration::captureUnhandledException($e);
+            });
+        }
     })->create();

@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\FcmChannel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
@@ -32,7 +33,14 @@ class CreditReceivedNotification extends Notification implements ShouldQueue
      */
     public function via(mixed $notifiable): array
     {
-        return ['database', 'broadcast'];
+        $channels = ['database', 'broadcast'];
+
+        // Only send push notification if user has granted C5 consent
+        if (\App\Models\UserConsent::hasConsent($notifiable->id, 'C5')) {
+            $channels[] = FcmChannel::class;
+        }
+
+        return $channels;
     }
 
     /**
@@ -89,5 +97,26 @@ class CreditReceivedNotification extends Notification implements ShouldQueue
     public function broadcastType(): string
     {
         return 'credit.received';
+    }
+
+    /**
+     * Payload FCM pour la notification push.
+     *
+     * @param mixed $notifiable
+     * @return array{title: string, body: string, data: array}
+     */
+    public function toFcm(mixed $notifiable): array
+    {
+        return [
+            'title' => 'Crédit reçu',
+            'body'  => "Vous avez gagné {$this->amount} FCFA !",
+            'data'  => [
+                'type'        => 'credit_received',
+                'amount'      => (string) $this->amount,
+                'campaign_id' => (string) $this->campaignId,
+                'new_balance' => (string) $this->newBalance,
+                'screen'      => 'wallet',
+            ],
+        ];
     }
 }

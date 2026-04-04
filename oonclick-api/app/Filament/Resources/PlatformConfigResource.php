@@ -27,6 +27,8 @@ class PlatformConfigResource extends Resource
 
     protected static ?int $navigationSort = 5;
 
+    protected static ?string $navigationGroup = 'Outils';
+
     // =========================================================================
     // Form
     // =========================================================================

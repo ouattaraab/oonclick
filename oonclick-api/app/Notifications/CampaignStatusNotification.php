@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\FcmChannel;
 use App\Models\Campaign;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -32,7 +33,7 @@ class CampaignStatusNotification extends Notification implements ShouldQueue
      */
     public function via(mixed $notifiable): array
     {
-        return ['database', 'broadcast', 'mail'];
+        return ['database', 'broadcast', 'mail', FcmChannel::class];
     }
 
     /**
@@ -149,5 +150,35 @@ class CampaignStatusNotification extends Notification implements ShouldQueue
         }
 
         return $mail;
+    }
+
+    /**
+     * Payload FCM pour la notification push.
+     *
+     * @param mixed $notifiable
+     * @return array{title: string, body: string, data: array}
+     */
+    public function toFcm(mixed $notifiable): array
+    {
+        $isApproved = $this->status === 'approved';
+
+        $data = [
+            'type'        => $isApproved ? 'campaign_approved' : 'campaign_rejected',
+            'campaign_id' => (string) $this->campaign->id,
+            'status'      => $this->status,
+            'screen'      => 'campaigns',
+        ];
+
+        if (! $isApproved && $this->campaign->rejection_reason) {
+            $data['rejection_reason'] = $this->campaign->rejection_reason;
+        }
+
+        return [
+            'title' => $isApproved ? 'Campagne approuvée' : 'Campagne rejetée',
+            'body'  => $isApproved
+                ? "Votre campagne \"{$this->campaign->title}\" a été approuvée."
+                : "Votre campagne \"{$this->campaign->title}\" a été rejetée.",
+            'data'  => $data,
+        ];
     }
 }

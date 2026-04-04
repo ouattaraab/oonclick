@@ -7,7 +7,7 @@ import 'dart:convert';
 class UserModel {
   const UserModel({
     required this.id,
-    required this.phone,
+    this.phone,
     required this.role,
     required this.kycLevel,
     required this.trustScore,
@@ -20,7 +20,7 @@ class UserModel {
 
   final int id;
   final String? name;
-  final String phone;
+  final String? phone;
   final String? email;
 
   /// `subscriber` | `advertiser` | `admin`
@@ -51,7 +51,7 @@ class UserModel {
     return UserModel(
       id: (json['id'] as num).toInt(),
       name: json['name'] as String?,
-      phone: json['phone'] as String,
+      phone: json['phone'] as String?,
       email: json['email'] as String?,
       role: json['role'] as String? ?? 'subscriber',
       kycLevel: (json['kyc_level'] as num?)?.toInt() ?? 0,

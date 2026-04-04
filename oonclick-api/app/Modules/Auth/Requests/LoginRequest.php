@@ -14,7 +14,9 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'phone'              => ['required', 'string'],
+            'method'             => ['sometimes', 'in:phone,email'],
+            'phone'              => ['required_without:email', 'nullable', 'string'],
+            'email'              => ['required_without:phone', 'nullable', 'email'],
             'device_fingerprint' => ['nullable', 'string', 'max:64'],
         ];
     }
@@ -22,7 +24,8 @@ class LoginRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'phone.required' => 'Le numéro de téléphone est requis.',
+            'phone.required_without' => 'Le numéro de téléphone ou l\'adresse e-mail est requis.',
+            'email.required_without' => 'L\'adresse e-mail ou le numéro de téléphone est requis.',
         ];
     }
 }

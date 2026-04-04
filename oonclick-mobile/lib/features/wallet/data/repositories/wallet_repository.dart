@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/api/api_client.dart';
 import '../../../../core/api/api_exception.dart';
 import '../models/wallet_model.dart';
+import '../models/withdrawal_model.dart';
 
 /// Repository for all wallet-related API calls.
 class WalletRepository {
@@ -64,9 +65,43 @@ class WalletRepository {
     try {
       await _api.post('/wallet/withdraw', data: {
         'amount': amount,
-        'operator': operator,
-        'phone': phone,
+        'mobile_operator': operator,
+        'mobile_phone': phone,
       });
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Withdrawal history (paginated)
+  // ---------------------------------------------------------------------------
+
+  /// GET /wallet/withdrawals?page=[page] — liste paginée des retraits.
+  Future<PaginatedResult<WithdrawalModel>> getWithdrawals({
+    int page = 1,
+  }) async {
+    try {
+      final response = await _api.get<Map<String, dynamic>>(
+        '/wallet/withdrawals',
+        params: {'page': page},
+      );
+      final data = response.data as Map<String, dynamic>;
+      return PaginatedResult.fromJson(data, WithdrawalModel.fromJson);
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Cancel withdrawal
+  // ---------------------------------------------------------------------------
+
+  /// POST /wallet/withdrawals/{id}/cancel — annule un retrait en attente.
+  Future<void> cancelWithdrawal(int id) async {
+    try {
+      await _api.post<Map<String, dynamic>>(
+          '/wallet/withdrawals/$id/cancel');
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);
     }

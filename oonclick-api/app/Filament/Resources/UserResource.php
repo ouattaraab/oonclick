@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\UserResource\Pages;
 use App\Filament\Resources\WithdrawalResource;
 use App\Models\User;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
@@ -17,6 +18,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Spatie\Permission\Models\Role;
 
 class UserResource extends Resource
 {
@@ -31,6 +33,23 @@ class UserResource extends Resource
     protected static ?string $pluralModelLabel = 'Utilisateurs';
 
     protected static ?int $navigationSort = 1;
+
+    protected static ?string $navigationGroup = 'Principal';
+
+    // =========================================================================
+    // Navigation badge — nombre d'utilisateurs suspendus
+    // =========================================================================
+
+    public static function getNavigationBadge(): ?string
+    {
+        $suspended = User::where('is_suspended', true)->count();
+        return $suspended > 0 ? (string) $suspended : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'danger';
+    }
 
     // =========================================================================
     // Form
@@ -78,6 +97,14 @@ class UserResource extends Resource
                 ->numeric()
                 ->minValue(0)
                 ->maxValue(100),
+
+            CheckboxList::make('roles')
+                ->label('Rôles Spatie')
+                ->relationship('roles', 'name')
+                ->options(Role::all()->pluck('name', 'name')->toArray())
+                ->columns(3)
+                ->columnSpanFull()
+                ->visible(fn (): bool => auth()->user()?->can('manage_roles') ?? false),
         ]);
     }
 
@@ -89,20 +116,27 @@ class UserResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('id')
-                    ->label('ID')
-                    ->sortable()
-                    ->searchable(),
-
+                // Avatar + nom + téléphone
                 TextColumn::make('name')
-                    ->label('Nom')
+                    ->label('Utilisateur')
+                    ->searchable()
                     ->sortable()
-                    ->searchable(),
+                    ->formatStateUsing(function (string $state, User $record): string {
+                        $initial = mb_strtoupper(mb_substr($state, 0, 1));
+                        $phone   = e($record->phone ?? '');
+                        return "
+                            <div style='display:flex;align-items:center;gap:10px;'>
+                                <div style='width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#2AABF0,#1B2A6E);display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:13px;flex-shrink:0;'>{$initial}</div>
+                                <div>
+                                    <div style='font-size:12px;font-weight:800;color:#1B2A6E;'>{$state}</div>
+                                    <div style='font-size:10px;color:#5A7098;font-weight:600;'>{$phone}</div>
+                                </div>
+                            </div>
+                        ";
+                    })
+                    ->html(),
 
-                TextColumn::make('phone')
-                    ->label('Téléphone')
-                    ->searchable(),
-
+                // Rôle badge
                 TextColumn::make('role')
                     ->label('Rôle')
                     ->badge()
@@ -115,39 +149,86 @@ class UserResource extends Resource
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'subscriber' => 'Abonné',
                         'advertiser' => 'Annonceur',
-                        'admin'      => 'Administrateur',
+                        'admin'      => 'Admin',
                         default      => $state,
                     }),
 
+                // Tier badge (Bronze / Silver / Gold)
+                TextColumn::make('tier')
+                    ->label('Tier')
+                    ->badge()
+                    ->color(fn (?string $state): string => match ($state) {
+                        'gold'   => 'warning',
+                        'silver' => 'gray',
+                        default  => 'gray',
+                    })
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'gold'   => 'Gold',
+                        'silver' => 'Silver',
+                        default  => 'Bronze',
+                    }),
+
+                // KYC level badge
                 TextColumn::make('kyc_level')
                     ->label('KYC')
                     ->badge()
-                    ->color('gray')
-                    ->formatStateUsing(fn ($state): string => "Niveau {$state}"),
+                    ->color(fn ($state): string => match ((int) $state) {
+                        3       => 'success',
+                        2       => 'info',
+                        1       => 'warning',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn ($state): string => "Niv. {$state}"),
 
+                // Trust score barre de progression
                 TextColumn::make('trust_score')
                     ->label('Score confiance')
-                    ->badge()
-                    ->color(fn ($state): string => match (true) {
-                        $state >= 70 => 'success',
-                        $state >= 40 => 'warning',
-                        default      => 'danger',
+                    ->formatStateUsing(function ($state): string {
+                        $score = (int) ($state ?? 0);
+                        $color = $score >= 70 ? '#16A34A' : ($score >= 40 ? '#D97706' : '#DC2626');
+                        $bgColor = $score >= 70 ? '#DCFCE7' : ($score >= 40 ? '#FEF3C7' : '#FEE2E2');
+                        return "
+                            <div style='min-width:80px;'>
+                                <div style='display:flex;justify-content:space-between;margin-bottom:3px;'>
+                                    <span style='font-size:10px;font-weight:800;color:{$color};'>{$score}/100</span>
+                                </div>
+                                <div style='height:5px;background:#EBF7FE;border-radius:3px;overflow:hidden;'>
+                                    <div style='width:{$score}%;height:100%;background:{$color};border-radius:3px;'></div>
+                                </div>
+                            </div>
+                        ";
                     })
-                    ->formatStateUsing(fn ($state): string => "{$state}/100"),
+                    ->html()
+                    ->sortable(),
 
-                ToggleColumn::make('is_active')
-                    ->label('Actif'),
-
-                TextColumn::make('is_suspended')
-                    ->label('Suspendu')
+                // Statut (Actif / Suspendu)
+                TextColumn::make('status_display')
+                    ->label('Statut')
+                    ->state(fn (User $record): string => $record->is_suspended ? 'suspended' : ($record->is_active ? 'active' : 'inactive'))
                     ->badge()
-                    ->color(fn (bool $state): string => $state ? 'danger' : 'gray')
-                    ->formatStateUsing(fn (bool $state): string => $state ? 'Suspendu' : 'Non'),
+                    ->color(fn (string $state): string => match ($state) {
+                        'active'   => 'success',
+                        'inactive' => 'gray',
+                        default    => 'danger',
+                    })
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'active'   => 'Actif',
+                        'inactive' => 'Inactif',
+                        default    => 'Suspendu',
+                    }),
+
+                TextColumn::make('roles_display')
+                    ->label('Rôles')
+                    ->state(fn (User $record): string => $record->getRoleNames()->implode(', '))
+                    ->badge()
+                    ->color('warning')
+                    ->placeholder('—'),
 
                 TextColumn::make('created_at')
                     ->label('Inscrit le')
                     ->date('d/m/Y')
-                    ->sortable(),
+                    ->sortable()
+                    ->color('gray'),
             ])
             ->filters([
                 SelectFilter::make('role')
@@ -170,6 +251,10 @@ class UserResource extends Resource
                 Filter::make('is_suspended')
                     ->label('Suspendus uniquement')
                     ->query(fn (Builder $query): Builder => $query->where('is_suspended', true)),
+
+                Filter::make('active')
+                    ->label('Actifs uniquement')
+                    ->query(fn (Builder $query): Builder => $query->where('is_active', true)->where('is_suspended', false)),
             ])
             ->actions([
                 Action::make('suspend')
@@ -185,8 +270,8 @@ class UserResource extends Resource
                     ])
                     ->action(function (User $record, array $data): void {
                         $record->update([
-                            'is_suspended'       => true,
-                            'suspension_reason'  => $data['reason'],
+                            'is_suspended'      => true,
+                            'suspension_reason' => $data['reason'],
                         ]);
                     })
                     ->requiresConfirmation()
@@ -211,11 +296,31 @@ class UserResource extends Resource
                     ->modalSubmitActionLabel('Confirmer la réactivation'),
 
                 Action::make('viewWallet')
-                    ->label('Voir les retraits')
+                    ->label('Retraits')
                     ->icon('heroicon-o-wallet')
                     ->color('info')
                     ->url(fn (User $record): string => WithdrawalResource::getUrl('index', ['tableSearch' => $record->phone]))
                     ->openUrlInNewTab(),
+
+                Action::make('manageRoles')
+                    ->label('Gérer les rôles')
+                    ->icon('heroicon-o-user-group')
+                    ->color('warning')
+                    ->visible(fn (): bool => auth()->user()?->can('manage_roles') ?? false)
+                    ->form([
+                        CheckboxList::make('roles')
+                            ->label('Rôles assignés')
+                            ->options(Role::all()->pluck('name', 'name')->toArray())
+                            ->columns(2),
+                    ])
+                    ->fillForm(fn (User $record): array => [
+                        'roles' => $record->getRoleNames()->toArray(),
+                    ])
+                    ->action(function (User $record, array $data): void {
+                        $record->syncRoles($data['roles'] ?? []);
+                    })
+                    ->modalHeading('Gérer les rôles')
+                    ->modalSubmitActionLabel('Enregistrer'),
 
                 EditAction::make()
                     ->label('Modifier'),

@@ -12,6 +12,7 @@
 google-services.json
 GoogleService-Info.plist
 firebase-credentials.json
+firebase-service-account.json
 # Clés et certificats
 *.pem
 *.p12

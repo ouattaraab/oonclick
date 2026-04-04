@@ -2,6 +2,7 @@
 
 namespace App\Modules\Diffusion\Services;
 
+use App\Models\AudienceCriterion;
 use App\Models\Campaign;
 use App\Models\SubscriberProfile;
 use App\Models\User;
@@ -34,7 +35,7 @@ class MatchingService
         $campaigns = Campaign::where('status', 'active')
             ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
             ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', now()))
-            ->whereRaw('views_count < max_views')
+            ->whereColumn('views_count', '<', 'max_views')
             // 2. Exclure campagnes déjà complétées par cet abonné (via ad_views)
             ->whereNotIn('id', function ($sub) use ($subscriber) {
                 $sub->select('campaign_id')
@@ -150,6 +151,64 @@ class MatchingService
                 return false;
             }
         }
+
+        // Critères dynamiques (custom_fields sur subscriber_profiles)
+        $dynamicCriteria = AudienceCriterion::getActiveCriteria()
+            ->filter(fn ($c) => $c->storage_column === null); // Uniquement les non-builtin
+
+        foreach ($dynamicCriteria as $criterion) {
+            $targetValue = $targeting[$criterion->name] ?? null;
+            if ($targetValue === null) continue; // La campagne ne cible pas ce critère
+
+            $profileValue = $profile->custom_fields[$criterion->name] ?? null;
+            if ($profileValue === null) return false; // L'abonné n'a pas renseigné ce champ
+
+            $matches = match ($criterion->type) {
+                'select' => is_array($targetValue)
+                    ? in_array(strtolower($profileValue), array_map('strtolower', $targetValue))
+                    : strtolower($profileValue) === strtolower($targetValue),
+                'multiselect' => ! empty(array_intersect(
+                    array_map('strtolower', (array) $profileValue),
+                    array_map('strtolower', (array) $targetValue)
+                )),
+                'text' => is_array($targetValue)
+                    ? in_array(strtolower($profileValue), array_map('strtolower', $targetValue))
+                    : str_contains(strtolower($profileValue), strtolower($targetValue)),
+                'boolean' => (bool) $profileValue === (bool) $targetValue,
+                'number'  => $this->matchNumberCriterion($profileValue, $targetValue),
+                'range'   => $this->matchRangeCriterion($profileValue, $targetValue),
+                default   => true,
+            };
+
+            if (! $matches) return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Vérifie si une valeur numérique du profil correspond au ciblage number.
+     */
+    private function matchNumberCriterion(mixed $profileValue, mixed $targetValue): bool
+    {
+        if (is_array($targetValue)) {
+            return in_array((int) $profileValue, array_map('intval', $targetValue));
+        }
+
+        return (int) $profileValue === (int) $targetValue;
+    }
+
+    /**
+     * Vérifie si une valeur numérique du profil est dans la plage min/max du ciblage.
+     */
+    private function matchRangeCriterion(mixed $profileValue, mixed $targetValue): bool
+    {
+        $value = (int) $profileValue;
+        $min   = $targetValue['min'] ?? null;
+        $max   = $targetValue['max'] ?? null;
+
+        if ($min !== null && $value < (int) $min) return false;
+        if ($max !== null && $value > (int) $max) return false;
 
         return true;
     }

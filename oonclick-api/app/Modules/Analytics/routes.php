@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Modules\Analytics\Controllers\AnalyticsController;
 
-Route::prefix('api')->middleware(['api', 'auth:sanctum'])->group(function () {
+Route::prefix('api')->middleware(['api', 'auth:sanctum', 'role.advertiser_or_admin'])->group(function () {
     // Tableau de bord statistiques pour l'annonceur
     Route::get('/analytics/campaigns/{id}',        [AnalyticsController::class, 'campaignStats']);
 

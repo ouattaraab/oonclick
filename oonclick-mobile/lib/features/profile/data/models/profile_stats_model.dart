@@ -11,6 +11,7 @@ class ProfileStatsModel {
     required this.kycLevel,
     required this.referralCode,
     required this.referralCount,
+    this.city,
   });
 
   /// Nombre total de publicités regardées jusqu'au bout.
@@ -36,6 +37,9 @@ class ProfileStatsModel {
 
   /// Nombre d'amis parrainés via ce code.
   final int referralCount;
+
+  /// Ville de résidence de l'utilisateur (depuis le profil).
+  final String? city;
 
   // ---------------------------------------------------------------------------
   // Seuils KYC
@@ -68,12 +72,14 @@ class ProfileStatsModel {
   // ---------------------------------------------------------------------------
 
   factory ProfileStatsModel.fromJson(Map<String, dynamic> json) {
-    // Le serveur peut retourner les stats sous une clé `wallet` ou à la racine.
-    final wallet = json['wallet'] as Map<String, dynamic>? ?? {};
+    // Backend /auth/me returns { "user": {...}, "profile": {...}, "wallet": {...} }
+    final user    = json['user']    as Map<String, dynamic>? ?? json;
+    final wallet  = json['wallet']  as Map<String, dynamic>? ?? {};
     final profile = json['profile'] as Map<String, dynamic>? ?? {};
 
     return ProfileStatsModel(
       totalViews: (json['total_views'] as num?)?.toInt() ??
+          (user['total_views'] as num?)?.toInt() ??
           (profile['total_views'] as num?)?.toInt() ?? 0,
       totalEarned: (wallet['total_earned'] as num?)?.toInt() ??
           (json['total_earned'] as num?)?.toInt() ?? 0,
@@ -81,12 +87,15 @@ class ProfileStatsModel {
           (json['total_withdrawn'] as num?)?.toInt() ?? 0,
       currentBalance: (wallet['balance'] as num?)?.toInt() ??
           (json['balance'] as num?)?.toInt() ?? 0,
-      trustScore: (json['trust_score'] as num?)?.toInt() ?? 0,
-      kycLevel: (json['kyc_level'] as num?)?.toInt() ?? 0,
-      referralCode: json['referral_code'] as String? ??
-          profile['referral_code'] as String? ?? '',
-      referralCount: (json['referral_count'] as num?)?.toInt() ??
-          (profile['referral_count'] as num?)?.toInt() ?? 0,
+      trustScore: (user['trust_score'] as num?)?.toInt() ??
+          (json['trust_score'] as num?)?.toInt() ?? 0,
+      kycLevel: (user['kyc_level'] as num?)?.toInt() ??
+          (json['kyc_level'] as num?)?.toInt() ?? 0,
+      referralCode: profile['referral_code'] as String? ??
+          json['referral_code'] as String? ?? '',
+      referralCount: (profile['referral_count'] as num?)?.toInt() ??
+          (json['referral_count'] as num?)?.toInt() ?? 0,
+      city: profile['city'] as String? ?? json['city'] as String?,
     );
   }
 
@@ -103,6 +112,7 @@ class ProfileStatsModel {
     int? kycLevel,
     String? referralCode,
     int? referralCount,
+    String? city,
   }) {
     return ProfileStatsModel(
       totalViews: totalViews ?? this.totalViews,
@@ -113,6 +123,7 @@ class ProfileStatsModel {
       kycLevel: kycLevel ?? this.kycLevel,
       referralCode: referralCode ?? this.referralCode,
       referralCount: referralCount ?? this.referralCount,
+      city: city ?? this.city,
     );
   }
 

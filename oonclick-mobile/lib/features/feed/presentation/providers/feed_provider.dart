@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/config/app_config.dart';
 import '../../../../core/services/device_service.dart';
 import '../../data/models/campaign_model.dart';
 import '../../data/repositories/feed_repository.dart';
+import '../../../wallet/presentation/providers/wallet_provider.dart';
 
 // ---------------------------------------------------------------------------
 // Feed notifier
@@ -126,4 +128,71 @@ class AdViewNotifier extends StateNotifier<AdViewState> {
 final adViewProvider =
     StateNotifierProvider<AdViewNotifier, AdViewState>((ref) {
   return AdViewNotifier(ref);
+});
+
+// ---------------------------------------------------------------------------
+// Feed stats — today's earnings and ad view count derived from wallet data
+// ---------------------------------------------------------------------------
+
+/// Daily stats displayed in the feed's wallet card.
+class FeedDailyStats {
+  const FeedDailyStats({
+    required this.todayEarned,
+    required this.adsToday,
+    required this.adsTotal,
+  });
+
+  /// FCFA credited today from ad views.
+  final int todayEarned;
+
+  /// Number of ads watched today.
+  final int adsToday;
+
+  /// Maximum ads allowed per day (from AppConfig).
+  final int adsTotal;
+}
+
+/// Derives today's earned amount and ad view count from the wallet's recent
+/// transactions. Filters credit transactions whose [createdAt] date matches
+/// today's local date.
+final feedDailyStatsProvider = Provider<FeedDailyStats>((ref) {
+  final walletAsync = ref.watch(walletProvider);
+
+  return walletAsync.when(
+    data: (wallet) {
+      final today = DateTime.now();
+      final todayTransactions = wallet.recentTransactions.where((tx) {
+        if (!tx.isCredit) return false;
+        try {
+          final txDate = DateTime.parse(tx.createdAt).toLocal();
+          return txDate.year == today.year &&
+              txDate.month == today.month &&
+              txDate.day == today.day;
+        } catch (_) {
+          return false;
+        }
+      }).toList();
+
+      final todayEarned = todayTransactions.fold<int>(
+        0,
+        (sum, tx) => sum + tx.amount,
+      );
+
+      return FeedDailyStats(
+        todayEarned: todayEarned,
+        adsToday: todayTransactions.length,
+        adsTotal: AppConfig.maxViewsPerDay,
+      );
+    },
+    loading: () => const FeedDailyStats(
+      todayEarned: 0,
+      adsToday: 0,
+      adsTotal: AppConfig.maxViewsPerDay,
+    ),
+    error: (_, __) => const FeedDailyStats(
+      todayEarned: 0,
+      adsToday: 0,
+      adsTotal: AppConfig.maxViewsPerDay,
+    ),
+  );
 });

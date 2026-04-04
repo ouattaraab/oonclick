@@ -1,8 +1,11 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'core/router/app_router.dart';
+import 'core/config/app_config.dart';
+import 'core/router/app_router.dart' show rootNavigatorKey, routerProvider;
+import 'core/services/fcm_service.dart';
 import 'core/services/hive_service.dart';
 import 'core/theme/app_theme.dart';
 
@@ -12,6 +15,19 @@ import 'core/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Verify HTTPS in release builds.
+  AppConfig.assertSecureConfig();
+
+  // Initialise Firebase (FCM push notifications).
+  try {
+    await Firebase.initializeApp();
+    await FcmService.init();
+    // Connect FCM navigation to the GoRouter navigator key.
+    FcmService.setNavigatorKey(rootNavigatorKey);
+  } catch (e) {
+    debugPrint('Firebase init failed (will work without push notifications): $e');
+  }
 
   // Initialise offline storage before the widget tree is mounted.
   await HiveService.init();

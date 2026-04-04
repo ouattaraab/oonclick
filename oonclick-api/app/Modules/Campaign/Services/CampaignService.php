@@ -7,6 +7,7 @@ use App\Models\EscrowEntry;
 use App\Modules\Campaign\Events\CampaignApproved;
 use App\Modules\Campaign\Events\CampaignRejected;
 use App\Modules\Campaign\Events\CampaignSubmitted;
+use App\Modules\Diffusion\Jobs\AssignCampaignTargetsJob;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
@@ -175,6 +176,9 @@ class CampaignService
 
         $campaign->status = 'active';
         $campaign->save();
+
+        // Dispatch target assignment so subscribers receive the newly active campaign.
+        AssignCampaignTargetsJob::dispatch($campaign->id);
 
         return $campaign;
     }

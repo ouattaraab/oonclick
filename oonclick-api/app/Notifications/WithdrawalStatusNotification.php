@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\FcmChannel;
 use App\Models\Withdrawal;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -30,7 +31,16 @@ class WithdrawalStatusNotification extends Notification implements ShouldQueue
      */
     public function via(mixed $notifiable): array
     {
-        return ['database', 'broadcast', 'mail'];
+        $channels = ['database', 'broadcast'];
+
+        if (\App\Models\UserConsent::hasConsent($notifiable->id, 'C6')) {
+            $channels[] = 'mail';
+        }
+        if (\App\Models\UserConsent::hasConsent($notifiable->id, 'C5')) {
+            $channels[] = FcmChannel::class;
+        }
+
+        return $channels;
     }
 
     /**
@@ -130,5 +140,31 @@ class WithdrawalStatusNotification extends Notification implements ShouldQueue
         }
 
         return $mail;
+    }
+
+    /**
+     * Payload FCM pour la notification push.
+     *
+     * @param mixed $notifiable
+     * @return array{title: string, body: string, data: array}
+     */
+    public function toFcm(mixed $notifiable): array
+    {
+        $isCompleted = $this->withdrawal->status === 'completed';
+
+        return [
+            'title' => $isCompleted ? 'Retrait effectué' : 'Retrait échoué',
+            'body'  => $isCompleted
+                ? "Votre retrait de {$this->withdrawal->net_amount} FCFA a été effectué avec succès."
+                : "Votre retrait de {$this->withdrawal->net_amount} FCFA a échoué.",
+            'data'  => [
+                'type'           => $isCompleted ? 'withdrawal_completed' : 'withdrawal_failed',
+                'withdrawal_id'  => (string) $this->withdrawal->id,
+                'status'         => $this->withdrawal->status,
+                'net_amount'     => (string) $this->withdrawal->net_amount,
+                'failure_reason' => $this->withdrawal->failure_reason ?? '',
+                'screen'         => 'wallet',
+            ],
+        ];
     }
 }

@@ -11,6 +11,7 @@ use App\Modules\Payment\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
@@ -62,6 +63,11 @@ class WalletController extends Controller
      */
     public function transactions(Request $request): JsonResponse
     {
+        $request->validate([
+            'status' => ['nullable', 'in:pending,completed,failed,cancelled'],
+            'type'   => ['nullable', 'in:credit,debit,pending,refund,bonus'],
+        ]);
+
         $user   = $request->user();
         $wallet = Wallet::where('user_id', $user->id)->first();
 
@@ -107,7 +113,7 @@ class WalletController extends Controller
 
         $validated = $request->validate([
             'amount'          => ['required', 'integer', "min:{$minWithdrawal}"],
-            'mobile_operator' => ['required', Rule::in(['mtn', 'moov', 'orange'])],
+            'mobile_operator' => ['required', Rule::in(['mtn', 'moov', 'orange', 'wave'])],
             'mobile_phone'    => ['required', 'string', 'regex:/^\+?[1-9]\d{7,14}$/'],
         ]);
 
@@ -201,5 +207,84 @@ class WalletController extends Controller
                 'created_at'      => $withdrawal->created_at,
             ],
         ], 201);
+    }
+
+    /**
+     * Retourne l'historique paginé des retraits de l'utilisateur authentifié.
+     *
+     * GET /api/wallet/withdrawals
+     */
+    public function withdrawals(Request $request): JsonResponse
+    {
+        $user        = $request->user();
+        $withdrawals = Withdrawal::where('user_id', $user->id)
+            ->orderByDesc('created_at')
+            ->paginate(20, [
+                'id', 'amount', 'fee', 'net_amount',
+                'mobile_operator', 'mobile_phone', 'status', 'created_at',
+            ]);
+
+        return response()->json($withdrawals);
+    }
+
+    /**
+     * Annule un retrait en attente et rembourse le montant sur le wallet.
+     *
+     * Seuls les retraits au statut 'pending' peuvent être annulés.
+     * Le montant total (amount, pas net_amount) est recrédité afin d'annuler
+     * exactement le débit initial effectué lors de la demande de retrait.
+     *
+     * POST /api/wallet/withdrawals/{id}/cancel
+     */
+    public function cancelWithdrawal(Request $request, int $id): JsonResponse
+    {
+        $user       = $request->user();
+        $withdrawal = Withdrawal::where('id', $id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (! $withdrawal) {
+            return response()->json([
+                'message' => 'Retrait introuvable.',
+            ], 404);
+        }
+
+        if ($withdrawal->status !== 'pending') {
+            return response()->json([
+                'message' => "Impossible d'annuler un retrait avec le statut « {$withdrawal->status} ». Seuls les retraits en attente peuvent être annulés.",
+            ], 422);
+        }
+
+        // Annuler le retrait et rembourser le wallet dans une transaction DB
+        DB::transaction(function () use ($withdrawal, $user) {
+            // Marquer le retrait comme annulé
+            $withdrawal->status = 'cancelled';
+            $withdrawal->save();
+
+            // Créditer le wallet du montant intégral (remboursement)
+            $this->walletService->credit(
+                userId: $user->id,
+                amount: $withdrawal->amount,
+                type: 'refund',
+                description: "Remboursement retrait annulé #{$withdrawal->id}",
+                metadata: ['withdrawal_id' => $withdrawal->id],
+                reference: "REFUND_WITHDRAWAL_{$withdrawal->id}",
+            );
+        });
+
+        Log::info('Retrait annulé', [
+            'user_id'       => $user->id,
+            'withdrawal_id' => $withdrawal->id,
+            'amount'        => $withdrawal->amount,
+        ]);
+
+        return response()->json([
+            'message'    => 'Retrait annulé. Le montant a été remboursé sur votre wallet.',
+            'withdrawal' => [
+                'id'     => $withdrawal->id,
+                'status' => $withdrawal->fresh()->status,
+                'amount' => $withdrawal->amount,
+            ],
+        ], 200);
     }
 }

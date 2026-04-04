@@ -22,8 +22,10 @@ class OtpService
             ->whereNull('used_at')
             ->update(['used_at' => now()]);
 
-        // 2. Générer un code aléatoire à 6 chiffres
-        $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        // 2. Générer un code aléatoire à 6 chiffres (fixe en dev pour les tests)
+        $code = app()->environment('local', 'testing')
+            ? '123456'
+            : str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
         // 3. Persister le code hashé avec son expiration
         OtpCode::create([

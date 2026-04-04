@@ -26,3 +26,11 @@ Broadcast::channel('advertiser.{id}', function ($user, $id) {
 Broadcast::channel('admin', function ($user) {
     return $user->role === 'admin';
 });
+
+// Canal campagne — progression en temps réel (canal public, lecture seule)
+// Accessible à l'annonceur propriétaire de la campagne.
+Broadcast::channel('campaign.{campaignId}', function ($user, $campaignId) {
+    return \App\Models\Campaign::where('id', $campaignId)
+        ->where('advertiser_id', $user->id)
+        ->exists();
+});

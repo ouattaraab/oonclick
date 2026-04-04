@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../providers/auth_provider.dart';
 
 // ---------------------------------------------------------------------------
-// Static reference data for Ivory Coast
+// Static data
 // ---------------------------------------------------------------------------
 
 const _citiesCI = [
@@ -47,9 +49,13 @@ const _interests = [
   'Agriculture',
 ];
 
+// ---------------------------------------------------------------------------
+// Screen
+// ---------------------------------------------------------------------------
+
 /// Multi-step profile completion screen for subscribers.
 ///
-/// Step 1 — Identity (first name, last name, gender, birth date)
+/// Step 1 — Identity (first name, gender, birth date)
 /// Step 2 — Location (city, mobile operator)
 /// Step 3 — Preferences (interests, referral code)
 class CompleteProfileScreen extends ConsumerStatefulWidget {
@@ -60,8 +66,7 @@ class CompleteProfileScreen extends ConsumerStatefulWidget {
       _CompleteProfileScreenState();
 }
 
-class _CompleteProfileScreenState
-    extends ConsumerState<CompleteProfileScreen>
+class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen>
     with SingleTickerProviderStateMixin {
   final _formKeys = [
     GlobalKey<FormState>(),
@@ -111,10 +116,6 @@ class _CompleteProfileScreenState
     super.dispose();
   }
 
-  // ---------------------------------------------------------------------------
-  // Navigation between steps
-  // ---------------------------------------------------------------------------
-
   void _nextStep() {
     if (!_formKeys[_currentStep].currentState!.validate()) return;
     if (_currentStep == 2) {
@@ -136,10 +137,6 @@ class _CompleteProfileScreenState
     _slideCtrl.forward();
   }
 
-  // ---------------------------------------------------------------------------
-  // Submit
-  // ---------------------------------------------------------------------------
-
   Future<void> _submit() async {
     final payload = {
       'first_name': _firstNameCtrl.text.trim(),
@@ -148,7 +145,7 @@ class _CompleteProfileScreenState
       if (_birthDate != null)
         'birth_date': _birthDate!.toIso8601String().substring(0, 10),
       if (_city != null) 'city': _city,
-      if (_operator != null) 'operator': _operator,
+      if (_operator != null) 'operator': _operator!.toLowerCase(),
       if (_selectedInterests.isNotEmpty)
         'interests': _selectedInterests.toList(),
       if (_referralCtrl.text.trim().isNotEmpty)
@@ -163,16 +160,12 @@ class _CompleteProfileScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.toString()),
-          backgroundColor: AppTheme.error,
+          content: Text(e.toString(), style: GoogleFonts.nunito()),
+          backgroundColor: AppColors.danger,
         ),
       );
     }
   }
-
-  // ---------------------------------------------------------------------------
-  // Build
-  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -180,60 +173,106 @@ class _CompleteProfileScreenState
     final isLoading = authState.isLoading;
 
     return Scaffold(
-      backgroundColor: AppTheme.bgPage,
-      appBar: AppBar(
-        title: const Text('Mon profil'),
-        leading: BackButton(onPressed: _prevStep),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Progress indicator
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: _StepProgressBar(
-                totalSteps: 3,
-                currentStep: _currentStep,
-              ),
+      backgroundColor: AppColors.bg,
+      body: Column(
+        children: [
+          // Header
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.fromLTRB(
+              20,
+              MediaQuery.of(context).padding.top + 16,
+              20,
+              20,
             ),
-
-            // Animated step content
-            Expanded(
-              child: SlideTransition(
-                position: _slideAnimation,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: _buildStepContent(),
+            decoration: const BoxDecoration(gradient: AppColors.navyGradient),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Back button
+                GestureDetector(
+                  onTap: _prevStep,
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(30),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
                 ),
-              ),
-            ),
+                const SizedBox(height: 12),
+                Text(
+                  'Mon profil',
+                  style: GoogleFonts.nunito(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 16),
 
-            // Bottom action button
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-              child: ElevatedButton(
-                onPressed: isLoading ? null : _nextStep,
-                child: isLoading
-                    ? const SizedBox(
-                        height: 22,
-                        width: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          color: Colors.white,
+                // Progress pills
+                Row(
+                  children: List.generate(3, (i) {
+                    final isDone = i <= _currentStep;
+                    return Expanded(
+                      child: Container(
+                        margin: EdgeInsets.only(right: i < 2 ? 8 : 0),
+                        height: 6,
+                        decoration: BoxDecoration(
+                          gradient: isDone
+                              ? AppColors.skyGradient
+                              : null,
+                          color: isDone ? null : Colors.white.withAlpha(50),
+                          borderRadius: BorderRadius.circular(4),
                         ),
-                      )
-                    : Text(_currentStep == 2 ? 'Terminer' : 'Suivant'),
+                      ),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Étape ${_currentStep + 1} / 3',
+                  style: GoogleFonts.nunito(
+                    fontSize: 12,
+                    color: Colors.white.withAlpha(180),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Animated step content
+          Expanded(
+            child: SlideTransition(
+              position: _slideAnimation,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+                child: _buildStepContent(),
               ),
             ),
-          ],
-        ),
+          ),
+
+          // Bottom action
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            color: AppColors.bg,
+            child: SkyGradientButton(
+              label: _currentStep == 2 ? 'Terminer' : 'Continuer',
+              onPressed: isLoading ? null : _nextStep,
+              isLoading: isLoading,
+            ),
+          ),
+        ],
       ),
     );
   }
-
-  // ---------------------------------------------------------------------------
-  // Step content builders
-  // ---------------------------------------------------------------------------
 
   Widget _buildStepContent() {
     return switch (_currentStep) {
@@ -243,7 +282,10 @@ class _CompleteProfileScreenState
     };
   }
 
+  // ---------------------------------------------------------------------------
   // Step 1 — Identity
+  // ---------------------------------------------------------------------------
+
   Widget _buildStep1() {
     return Form(
       key: _formKeys[0],
@@ -251,59 +293,65 @@ class _CompleteProfileScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _StepTitle(
-            step: 1,
             title: 'Votre identité',
-            subtitle: 'Ces informations nous permettent de personnaliser '
-                'votre expérience.',
+            subtitle: 'Ces informations personnalisent votre expérience.',
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           _FieldLabel('Prénom'),
           const SizedBox(height: 8),
           TextFormField(
             controller: _firstNameCtrl,
             textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(hintText: 'Ex. Konan'),
+            style: GoogleFonts.nunito(color: AppColors.navy, fontWeight: FontWeight.w600),
+            decoration: InputDecoration(
+              hintText: 'Ex. Konan',
+              hintStyle: GoogleFonts.nunito(color: AppColors.textHint),
+            ),
             validator: (v) =>
                 (v == null || v.trim().isEmpty) ? 'Champ requis' : null,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           _FieldLabel('Nom'),
           const SizedBox(height: 8),
           TextFormField(
             controller: _lastNameCtrl,
             textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(hintText: 'Ex. Kouamé'),
+            style: GoogleFonts.nunito(color: AppColors.navy, fontWeight: FontWeight.w600),
+            decoration: InputDecoration(
+              hintText: 'Ex. Kouamé',
+              hintStyle: GoogleFonts.nunito(color: AppColors.textHint),
+            ),
             validator: (v) =>
                 (v == null || v.trim().isEmpty) ? 'Champ requis' : null,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           _FieldLabel('Genre'),
           const SizedBox(height: 8),
           Row(
             children: [
-              _GenderChip(
-                label: 'Homme',
-                icon: Icons.male_rounded,
+              _GenderPill(
+                label: 'H',
+                fullLabel: 'Homme',
                 isSelected: _gender == 'male',
                 onTap: () => setState(() => _gender = 'male'),
               ),
               const SizedBox(width: 10),
-              _GenderChip(
-                label: 'Femme',
-                icon: Icons.female_rounded,
+              _GenderPill(
+                label: 'F',
+                fullLabel: 'Femme',
                 isSelected: _gender == 'female',
                 onTap: () => setState(() => _gender = 'female'),
               ),
               const SizedBox(width: 10),
-              _GenderChip(
+              _GenderPill(
                 label: 'Autre',
-                icon: Icons.person_outline_rounded,
+                fullLabel: 'Autre',
                 isSelected: _gender == 'other',
                 onTap: () => setState(() => _gender = 'other'),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           _FieldLabel('Date de naissance (optionnel)'),
           const SizedBox(height: 8),
           GestureDetector(
@@ -312,24 +360,28 @@ class _CompleteProfileScreenState
                 context: context,
                 initialDate: DateTime(2000),
                 firstDate: DateTime(1940),
-                lastDate: DateTime.now().subtract(
-                  const Duration(days: 365 * 16),
+                lastDate: DateTime.now().subtract(const Duration(days: 365 * 16)),
+                builder: (ctx, child) => Theme(
+                  data: Theme.of(ctx).copyWith(
+                    colorScheme: const ColorScheme.light(primary: AppColors.sky),
+                  ),
+                  child: child!,
                 ),
               );
               if (picked != null) setState(() => _birthDate = picked);
             },
             child: Container(
-              height: 52,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
-                color: AppTheme.bgCard,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.divider),
+                color: AppColors.skyPale,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.border, width: 1.5),
               ),
               child: Row(
                 children: [
                   const Icon(Icons.calendar_today_outlined,
-                      color: AppTheme.textSecondary, size: 18),
+                      color: AppColors.muted, size: 18),
                   const SizedBox(width: 10),
                   Text(
                     _birthDate == null
@@ -337,24 +389,28 @@ class _CompleteProfileScreenState
                         : '${_birthDate!.day.toString().padLeft(2, '0')}/'
                             '${_birthDate!.month.toString().padLeft(2, '0')}/'
                             '${_birthDate!.year}',
-                    style: TextStyle(
+                    style: GoogleFonts.nunito(
                       color: _birthDate == null
-                          ? AppTheme.textHint
-                          : AppTheme.textPrimary,
-                      fontSize: 15,
+                          ? AppColors.textHint
+                          : AppColors.navy,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
                     ),
                   ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
         ],
       ),
     );
   }
 
+  // ---------------------------------------------------------------------------
   // Step 2 — Location
+  // ---------------------------------------------------------------------------
+
   Widget _buildStep2() {
     return Form(
       key: _formKeys[1],
@@ -362,16 +418,23 @@ class _CompleteProfileScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _StepTitle(
-            step: 2,
             title: 'Votre localisation',
             subtitle: 'Recevez des pubs adaptées à votre région.',
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           _FieldLabel('Ville'),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
-            initialValue: _city,
-            decoration: const InputDecoration(hintText: 'Choisir une ville'),
+            value: _city,
+            style: GoogleFonts.nunito(
+              color: AppColors.navy,
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Choisir une ville',
+              hintStyle: GoogleFonts.nunito(color: AppColors.textHint),
+            ),
             items: _citiesCI
                 .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                 .toList(),
@@ -396,20 +459,26 @@ class _CompleteProfileScreenState
                 .toList(),
           ),
           if (_operator == null)
-            const Padding(
-              padding: EdgeInsets.only(top: 6),
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
               child: Text(
                 'Veuillez sélectionner un opérateur',
-                style: TextStyle(color: AppTheme.error, fontSize: 12),
+                style: GoogleFonts.nunito(
+                  color: AppColors.danger,
+                  fontSize: 12,
+                ),
               ),
             ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
         ],
       ),
     );
   }
 
+  // ---------------------------------------------------------------------------
   // Step 3 — Preferences
+  // ---------------------------------------------------------------------------
+
   Widget _buildStep3() {
     return Form(
       key: _formKeys[2],
@@ -417,58 +486,66 @@ class _CompleteProfileScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _StepTitle(
-            step: 3,
             title: 'Vos centres d\'intérêts',
             subtitle:
                 'Sélectionnez au moins un domaine pour recevoir des pubs '
                 'qui vous correspondent.',
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: _interests.map((interest) {
               final isSelected = _selectedInterests.contains(interest);
-              return FilterChip(
-                label: Text(interest),
-                selected: isSelected,
-                onSelected: (_) => setState(() {
+              return GestureDetector(
+                onTap: () => setState(() {
                   if (isSelected) {
                     _selectedInterests.remove(interest);
                   } else {
                     _selectedInterests.add(interest);
                   }
                 }),
-                selectedColor: AppTheme.primary.withAlpha(30),
-                checkmarkColor: AppTheme.primary,
-                labelStyle: TextStyle(
-                  color: isSelected
-                      ? AppTheme.primary
-                      : AppTheme.textSecondary,
-                  fontWeight: isSelected
-                      ? FontWeight.w600
-                      : FontWeight.normal,
-                ),
-                side: BorderSide(
-                  color:
-                      isSelected ? AppTheme.primary : AppTheme.divider,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppColors.skyPale : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isSelected ? AppColors.sky : AppColors.border,
+                      width: isSelected ? 2 : 1.5,
+                    ),
+                  ),
+                  child: Text(
+                    interest,
+                    style: GoogleFonts.nunito(
+                      fontSize: 13,
+                      fontWeight:
+                          isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color: isSelected ? AppColors.sky : AppColors.muted,
+                    ),
+                  ),
                 ),
               );
             }).toList(),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           _FieldLabel('Code de parrainage (optionnel)'),
           const SizedBox(height: 8),
           TextFormField(
             controller: _referralCtrl,
             textCapitalization: TextCapitalization.characters,
-            decoration: const InputDecoration(
+            style: GoogleFonts.nunito(
+                color: AppColors.navy, fontWeight: FontWeight.w700),
+            decoration: InputDecoration(
               hintText: 'Ex. OON-XXXX',
-              prefixIcon:
-                  Icon(Icons.card_giftcard_outlined, color: AppTheme.primary),
+              hintStyle: GoogleFonts.nunito(color: AppColors.textHint),
+              prefixIcon: const Icon(Icons.card_giftcard_outlined,
+                  color: AppColors.sky, size: 20),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
         ],
       ),
     );
@@ -479,43 +556,9 @@ class _CompleteProfileScreenState
 // Helper widgets
 // ---------------------------------------------------------------------------
 
-class _StepProgressBar extends StatelessWidget {
-  const _StepProgressBar({
-    required this.totalSteps,
-    required this.currentStep,
-  });
-
-  final int totalSteps;
-  final int currentStep;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: List.generate(totalSteps, (i) {
-        final isDone = i <= currentStep;
-        return Expanded(
-          child: Container(
-            margin: EdgeInsets.only(right: i < totalSteps - 1 ? 6 : 0),
-            height: 5,
-            decoration: BoxDecoration(
-              color: isDone ? AppTheme.primary : AppTheme.divider,
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-        );
-      }),
-    );
-  }
-}
-
 class _StepTitle extends StatelessWidget {
-  const _StepTitle({
-    required this.step,
-    required this.title,
-    required this.subtitle,
-  });
+  const _StepTitle({required this.title, required this.subtitle});
 
-  final int step;
   final String title;
   final String subtitle;
 
@@ -525,27 +568,21 @@ class _StepTitle extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Étape $step / 3',
-          style: const TextStyle(
-            color: AppTheme.primary,
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
+          title,
+          style: GoogleFonts.nunito(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: AppColors.navy,
           ),
         ),
         const SizedBox(height: 4),
         Text(
-          title,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-                color: AppTheme.textPrimary,
-              ),
-        ),
-        const SizedBox(height: 6),
-        Text(
           subtitle,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.textSecondary,
-              ),
+          style: GoogleFonts.nunito(
+            fontSize: 13,
+            color: AppColors.muted,
+            height: 1.5,
+          ),
         ),
       ],
     );
@@ -561,25 +598,25 @@ class _FieldLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       label,
-      style: const TextStyle(
-        fontWeight: FontWeight.w600,
+      style: GoogleFonts.nunito(
+        fontWeight: FontWeight.w700,
         fontSize: 14,
-        color: AppTheme.textPrimary,
+        color: AppColors.navy,
       ),
     );
   }
 }
 
-class _GenderChip extends StatelessWidget {
-  const _GenderChip({
+class _GenderPill extends StatelessWidget {
+  const _GenderPill({
     required this.label,
-    required this.icon,
+    required this.fullLabel,
     required this.isSelected,
     required this.onTap,
   });
 
   final String label;
-  final IconData icon;
+  final String fullLabel;
   final bool isSelected;
   final VoidCallback onTap;
 
@@ -589,35 +626,22 @@ class _GenderChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primary.withAlpha(20) : AppTheme.bgCard,
+          color: isSelected ? AppColors.skyPale : Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isSelected ? AppTheme.primary : AppTheme.divider,
-            width: isSelected ? 1.5 : 1,
+            color: isSelected ? AppColors.sky : AppColors.border,
+            width: isSelected ? 2 : 1.5,
           ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon,
-                size: 16,
-                color: isSelected
-                    ? AppTheme.primary
-                    : AppTheme.textSecondary),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: isSelected
-                    ? AppTheme.primary
-                    : AppTheme.textSecondary,
-              ),
-            ),
-          ],
+        child: Text(
+          fullLabel,
+          style: GoogleFonts.nunito(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: isSelected ? AppColors.sky : AppColors.muted,
+          ),
         ),
       ),
     );
@@ -643,20 +667,19 @@ class _OperatorChip extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
-          color:
-              isSelected ? AppTheme.primary.withAlpha(20) : AppTheme.bgCard,
+          color: isSelected ? AppColors.skyPale : Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isSelected ? AppTheme.primary : AppTheme.divider,
-            width: isSelected ? 1.5 : 1,
+            color: isSelected ? AppColors.sky : AppColors.border,
+            width: isSelected ? 2 : 1.5,
           ),
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: GoogleFonts.nunito(
             fontWeight: FontWeight.w700,
             fontSize: 14,
-            color: isSelected ? AppTheme.primary : AppTheme.textSecondary,
+            color: isSelected ? AppColors.sky : AppColors.muted,
           ),
         ),
       ),

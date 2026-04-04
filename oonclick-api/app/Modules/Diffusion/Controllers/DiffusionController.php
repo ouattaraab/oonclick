@@ -4,6 +4,7 @@ namespace App\Modules\Diffusion\Controllers;
 
 use App\Models\AdView;
 use App\Models\Campaign;
+use App\Models\FeatureSetting;
 use App\Modules\Campaign\Services\MediaService;
 use App\Modules\Diffusion\Services\MatchingService;
 use App\Modules\Diffusion\Services\ViewTrackingService;
@@ -65,7 +66,7 @@ class DiffusionController extends Controller
                 $presignedUrl = $campaign->media_url;
             }
 
-            return [
+            $result = [
                 'id'                => $campaign->id,
                 'title'             => $campaign->title,
                 'format'            => $campaign->format,
@@ -75,9 +76,73 @@ class DiffusionController extends Controller
                 'amount'            => $amount,
                 'format_multiplier' => $multiplier,
             ];
+
+            // Include quiz data for quiz format campaigns
+            if ($campaign->format === 'quiz' && $campaign->quiz_data) {
+                $quizData = $campaign->quiz_data;
+                $result['quiz_data'] = is_string($quizData) ? json_decode($quizData, true) : $quizData;
+            }
+
+            return $result;
         });
 
         return response()->json(['data' => $data]);
+    }
+
+    /**
+     * Retourne l'historique des publicités regardées par l'abonné.
+     */
+    public function history(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user->role !== 'subscriber') {
+            return response()->json(['message' => 'Accès réservé aux abonnés.'], 403);
+        }
+
+        $views = AdView::where('subscriber_id', $user->id)
+            ->where('is_completed', true)
+            ->with('campaign')
+            ->orderByDesc('completed_at')
+            ->paginate(20);
+
+        $data = $views->getCollection()->map(function (AdView $view) {
+            $campaign = $view->campaign;
+            if (!$campaign) return null;
+
+            $multiplier = config('oonclick.format_multipliers')[$campaign->format] ?? 1.0;
+            $amount     = (int) floor(config('oonclick.subscriber_earn', 60) * $multiplier);
+
+            $mediaUrl = $campaign->media_url;
+            if ($campaign->media_path) {
+                try {
+                    $mediaUrl = $this->mediaService->generatePresignedUrl($campaign->media_path, 15);
+                } catch (\Throwable $e) {
+                    $mediaUrl = $campaign->media_url;
+                }
+            }
+
+            return [
+                'id'                => $campaign->id,
+                'title'             => $campaign->title,
+                'format'            => $campaign->format,
+                'media_url'         => $mediaUrl,
+                'thumbnail_url'     => $campaign->thumbnail_url,
+                'duration_seconds'  => $campaign->duration_seconds,
+                'amount'            => $amount,
+                'format_multiplier' => $multiplier,
+                'viewed_at'         => $view->completed_at?->toIso8601String(),
+                'amount_credited'   => $view->amount_credited,
+                'total_views'       => $campaign->views_count,
+            ];
+        })->filter()->values();
+
+        return response()->json([
+            'data'        => $data,
+            'current_page' => $views->currentPage(),
+            'last_page'    => $views->lastPage(),
+            'total'        => $views->total(),
+        ]);
     }
 
     /**
@@ -175,6 +240,132 @@ class DiffusionController extends Controller
             'amount'      => $result['amount'],
             'new_balance' => $newBalance,
             'message'     => "{$result['amount']} FCFA crédités sur votre portefeuille",
+        ]);
+    }
+
+    /**
+     * Pré-charge les campagnes disponibles pour un visionnage hors-ligne.
+     *
+     * Retourne une liste de campagnes avec leurs URLs CDN et une durée de
+     * validité configurée. Disponible uniquement si la feature 'offline_mode'
+     * est activée.
+     */
+    public function preload(Request $request): JsonResponse
+    {
+        if (! FeatureSetting::isEnabled('offline_mode')) {
+            return response()->json(['message' => 'Mode hors-ligne désactivé.'], 403);
+        }
+
+        $config       = FeatureSetting::getConfig('offline_mode');
+        $maxCampaigns = $config['max_preload_campaigns'] ?? 5;
+        $validityHours = $config['preload_validity_hours'] ?? 24;
+
+        $user      = $request->user();
+        $campaigns = $this->matchingService->getEligibleCampaigns($user);
+
+        $preloadable = $campaigns->take($maxCampaigns)->map(function (Campaign $campaign) use ($validityHours) {
+            $multiplier = config('oonclick.format_multipliers')[$campaign->format] ?? 1.0;
+            $amount     = (int) floor(config('oonclick.subscriber_earn', 60) * $multiplier);
+
+            // Utiliser l'URL CDN publique pour le hors-ligne (pas de presigned URL
+            // courte durée — la validité est gérée côté client via valid_until)
+            $mediaUrl = $campaign->media_url;
+            if ($campaign->media_path) {
+                try {
+                    // URL presignée avec longue durée (validityHours × 60 minutes)
+                    $mediaUrl = $this->mediaService->generatePresignedUrl(
+                        $campaign->media_path,
+                        $validityHours * 60
+                    );
+                } catch (\Throwable $e) {
+                    $mediaUrl = $campaign->media_url;
+                    Log::warning('Preload : impossible de générer la presigned URL', [
+                        'campaign_id' => $campaign->id,
+                        'error'       => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            return [
+                'id'               => $campaign->id,
+                'title'            => $campaign->title,
+                'format'           => $campaign->format,
+                'media_url'        => $mediaUrl,
+                'thumbnail_url'    => $campaign->thumbnail_url,
+                'duration_seconds' => $campaign->duration_seconds,
+                'amount'           => $amount,
+                'valid_until'      => now()->addHours($validityHours)->toISOString(),
+            ];
+        });
+
+        return response()->json([
+            'campaigns'    => $preloadable,
+            'preloaded_at' => now()->toISOString(),
+            'valid_hours'  => $validityHours,
+        ]);
+    }
+
+    /**
+     * Synchronise les visionnages effectués hors-ligne avec le serveur.
+     *
+     * Chaque entrée de `completions` est traitée comme un visionnage complet :
+     * démarrage + complétion via ViewTrackingService. Les erreurs individuelles
+     * sont rapportées sans interrompre le traitement du lot.
+     */
+    public function sync(Request $request): JsonResponse
+    {
+        if (! FeatureSetting::isEnabled('offline_mode')) {
+            return response()->json(['message' => 'Mode hors-ligne désactivé.'], 403);
+        }
+
+        $config      = FeatureSetting::getConfig('offline_mode');
+        $maxBatch    = $config['sync_max_batch_size'] ?? 10;
+
+        $data = $request->validate([
+            'completions'                           => 'required|array|max:' . $maxBatch,
+            'completions.*.campaign_id'             => 'required|integer|exists:campaigns,id',
+            'completions.*.watch_duration_seconds'  => 'required|integer|min:1',
+            'completions.*.completed_at'            => 'required|date',
+        ]);
+
+        $user    = $request->user();
+        $results = [];
+
+        foreach ($data['completions'] as $completion) {
+            try {
+                $campaign = Campaign::findOrFail($completion['campaign_id']);
+
+                $adView = $this->viewTrackingService->startView($user, $campaign, []);
+
+                $result = $this->viewTrackingService->completeView(
+                    $adView,
+                    (int) $completion['watch_duration_seconds']
+                );
+
+                $results[] = [
+                    'campaign_id' => $completion['campaign_id'],
+                    'success'     => true,
+                    'credited'    => $result['credited'] ?? false,
+                    'amount'      => $result['amount'] ?? 0,
+                ];
+            } catch (\Throwable $e) {
+                Log::warning('Offline sync : erreur de traitement', [
+                    'campaign_id' => $completion['campaign_id'],
+                    'user_id'     => $user->id,
+                    'error'       => $e->getMessage(),
+                ]);
+
+                $results[] = [
+                    'campaign_id' => $completion['campaign_id'],
+                    'success'     => false,
+                    'error'       => $e->getMessage(),
+                ];
+            }
+        }
+
+        return response()->json([
+            'results'      => $results,
+            'synced_count' => count($results),
         ]);
     }
 }

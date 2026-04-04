@@ -28,6 +28,8 @@ class Campaign extends Model
         'thumbnail_url',
         'duration_seconds',
         'targeting',
+        'quiz_data',
+        'end_mode',
         'starts_at',
         'ends_at',
         'approved_at',
@@ -39,6 +41,7 @@ class Campaign extends Model
     {
         return [
             'targeting'    => 'array',
+            'quiz_data'    => 'array',
             'budget'       => 'integer',
             'cost_per_view' => 'integer',
             'max_views'    => 'integer',
@@ -121,10 +124,12 @@ class Campaign extends Model
             return false;
         }
 
-        if ($this->ends_at !== null && $this->ends_at->isPast()) {
-            return false;
-        }
-
-        return $this->getRemainingViewsAttribute() > 0;
+        // Check end condition based on end_mode
+        return match ($this->end_mode) {
+            'date' => ($this->ends_at === null || ! $this->ends_at->isPast()) && $this->getRemainingViewsAttribute() > 0,
+            'target_reached' => $this->getRemainingViewsAttribute() > 0,
+            'manual' => $this->getRemainingViewsAttribute() > 0,
+            default => $this->getRemainingViewsAttribute() > 0,
+        };
     }
 }

@@ -1,0 +1,417 @@
+@import 'tailwindcss';
+
+@source '../../../../vendor/filament/**/*.blade.php';
+
+/* =================================================================
+   ADMIN — DESIGN A: DARK SIDEBAR PRO
+   Exact match to mockup
+   ================================================================= */
+
+/* -----------------------------------------------------------------
+   SIDEBAR — Dark navy, lighter text for readability
+   ----------------------------------------------------------------- */
+.fi-sidebar {
+    background: linear-gradient(180deg, #0F172A 0%, #1E293B 100%) !important;
+    border-right: none !important;
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* ---- Brand / Logo: bright white and visible ---- */
+.fi-sidebar-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    padding: 20px 16px !important;
+}
+
+.fi-sidebar-header *,
+.fi-sidebar-header a,
+.fi-sidebar-header span,
+.fi-sidebar-header div,
+.fi-sidebar-header p,
+.fi-logo {
+    color: #FFFFFF !important;
+    font-weight: 800 !important;
+    font-size: 1.125rem !important;
+}
+
+/* ---- Nav group labels: brighter ---- */
+.fi-sidebar-group-label,
+.fi-sidebar-group > button > span,
+.fi-sidebar [class*="group-label"],
+.fi-sidebar-nav .fi-sidebar-group > .fi-sidebar-group-button span {
+    color: #7B8FAA !important;
+    font-size: 0.625rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1.5px !important;
+}
+
+/* ---- Nav items: LIGHTER text for readability ---- */
+.fi-sidebar-item a,
+.fi-sidebar-item button,
+.fi-sidebar-item-button,
+.fi-sidebar-item span,
+.fi-sidebar-item-label {
+    color: #B0BFD0 !important;
+    border-radius: 10px !important;
+    font-weight: 500 !important;
+    font-size: 0.8125rem !important;
+}
+
+.fi-sidebar-item a:hover,
+.fi-sidebar-item button:hover,
+.fi-sidebar-item-button:hover {
+    background: rgba(255, 255, 255, 0.07) !important;
+    color: #E8EDF3 !important;
+}
+
+/* ---- Nav active: cyan blue highlight ---- */
+.fi-sidebar-item-active a,
+.fi-sidebar-item-active button,
+.fi-sidebar-item-active span,
+.fi-sidebar-item-active .fi-sidebar-item-label,
+.fi-sidebar-item-button[aria-current="page"],
+.fi-sidebar-item-button.fi-active {
+    background: rgba(56, 189, 248, 0.15) !important;
+    color: #38BDF8 !important;
+    font-weight: 600 !important;
+}
+
+/* ---- Nav icons: inherit parent color ---- */
+.fi-sidebar-item-icon,
+.fi-sidebar-item svg {
+    color: inherit !important;
+    opacity: 0.7;
+}
+
+.fi-sidebar-item-active .fi-sidebar-item-icon,
+.fi-sidebar-item-active svg,
+.fi-sidebar-item-button[aria-current="page"] .fi-sidebar-item-icon {
+    opacity: 1;
+}
+
+/* ---- Nav badge: red pill ---- */
+.fi-sidebar-item-badge .fi-badge,
+.fi-sidebar-item .fi-badge {
+    background: #EF4444 !important;
+    color: #fff !important;
+    border-color: transparent !important;
+    font-size: 0.6rem !important;
+    font-weight: 700 !important;
+}
+
+/* ---- Sidebar buttons (collapse, etc.) ---- */
+.fi-sidebar-close-btn,
+.fi-sidebar-open-btn,
+.fi-sidebar .fi-icon-btn {
+    color: #B0BFD0 !important;
+}
+
+.fi-sidebar-footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+/* -----------------------------------------------------------------
+   TOPBAR — White, clean
+   ----------------------------------------------------------------- */
+.fi-topbar {
+    background: #FFFFFF !important;
+    border-bottom: 1px solid #E2E8F0 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+.fi-topbar nav {
+    background: transparent !important;
+}
+
+/* Topbar collapse button */
+.fi-topbar .fi-icon-btn {
+    color: #64748B !important;
+}
+
+/* -----------------------------------------------------------------
+   BODY / MAIN
+   ----------------------------------------------------------------- */
+.fi-body {
+    background: #F1F5F9 !important;
+}
+
+.fi-main {
+    background: #F1F5F9 !important;
+}
+
+/* Page title */
+.fi-header-heading {
+    font-weight: 800 !important;
+    color: #0F172A !important;
+    letter-spacing: -0.025em !important;
+    font-size: 1.5rem !important;
+}
+
+/* -----------------------------------------------------------------
+   KPI STAT CARDS — Colored left border accent + colored icons
+   ----------------------------------------------------------------- */
+.fi-wi-stats-overview-stat {
+    background: #FFFFFF !important;
+    border: 1px solid #E2E8F0 !important;
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03) !important;
+    padding: 18px 20px !important;
+    position: relative !important;
+}
+
+/* Colored left border per card */
+.fi-wi-stats-overview-stat:nth-child(1) {
+    border-left: 4px solid #0EA5E9 !important;
+}
+.fi-wi-stats-overview-stat:nth-child(2) {
+    border-left: 4px solid #22C55E !important;
+}
+.fi-wi-stats-overview-stat:nth-child(3) {
+    border-left: 4px solid #F59E0B !important;
+}
+.fi-wi-stats-overview-stat:nth-child(4) {
+    border-left: 4px solid #8B5CF6 !important;
+}
+.fi-wi-stats-overview-stat:nth-child(5) {
+    border-left: 4px solid #06B6D4 !important;
+}
+.fi-wi-stats-overview-stat:nth-child(6) {
+    border-left: 4px solid #EC4899 !important;
+}
+.fi-wi-stats-overview-stat:nth-child(7) {
+    border-left: 4px solid #F97316 !important;
+}
+.fi-wi-stats-overview-stat:nth-child(8) {
+    border-left: 4px solid #14B8A6 !important;
+}
+
+/* Stat value — big bold navy */
+.fi-wi-stats-overview-stat-value {
+    font-size: 1.75rem !important;
+    font-weight: 800 !important;
+    color: #0F172A !important;
+    letter-spacing: -0.03em !important;
+    line-height: 1.2 !important;
+}
+
+/* Stat label — medium gray */
+.fi-wi-stats-overview-stat-label {
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    color: #64748B !important;
+}
+
+/* Stat description — force green for positive trends */
+.fi-wi-stats-overview-stat-description {
+    font-size: 0.6875rem !important;
+    font-weight: 600 !important;
+    color: #16A34A !important;
+}
+
+/* Stat icon — colored and larger */
+.fi-wi-stats-overview-stat-icon {
+    width: 2.25rem !important;
+    height: 2.25rem !important;
+}
+
+/* Color the stat icons per position */
+.fi-wi-stats-overview-stat:nth-child(1) .fi-wi-stats-overview-stat-icon {
+    color: #0EA5E9 !important;
+}
+.fi-wi-stats-overview-stat:nth-child(2) .fi-wi-stats-overview-stat-icon {
+    color: #22C55E !important;
+}
+.fi-wi-stats-overview-stat:nth-child(3) .fi-wi-stats-overview-stat-icon {
+    color: #F59E0B !important;
+}
+.fi-wi-stats-overview-stat:nth-child(4) .fi-wi-stats-overview-stat-icon {
+    color: #8B5CF6 !important;
+}
+
+/* -----------------------------------------------------------------
+   CARDS & SECTIONS
+   ----------------------------------------------------------------- */
+.fi-section,
+.fi-ta-ctn {
+    background: #FFFFFF !important;
+    border: 1px solid #E2E8F0 !important;
+    border-radius: 14px !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+}
+
+/* -----------------------------------------------------------------
+   TABLES
+   ----------------------------------------------------------------- */
+.fi-ta-header-cell {
+    font-size: 0.625rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.06em !important;
+    color: #64748B !important;
+    background: #F8FAFC !important;
+    border-bottom: 1px solid #E2E8F0 !important;
+    padding: 12px 16px !important;
+}
+
+.fi-ta-cell {
+    font-size: 0.8125rem !important;
+    color: #334155 !important;
+    font-weight: 500 !important;
+    border-bottom: 1px solid #F1F5F9 !important;
+    padding: 14px 16px !important;
+}
+
+.fi-ta-row:hover .fi-ta-cell {
+    background: #F8FAFC !important;
+}
+
+.fi-ta-row:last-child .fi-ta-cell {
+    border-bottom: none !important;
+}
+
+/* -----------------------------------------------------------------
+   BADGES
+   ----------------------------------------------------------------- */
+.fi-badge {
+    font-weight: 600 !important;
+    font-size: 0.6875rem !important;
+    border-radius: 9999px !important;
+    padding-left: 0.625rem !important;
+    padding-right: 0.625rem !important;
+}
+
+/* -----------------------------------------------------------------
+   BUTTONS — Sky blue gradient
+   ----------------------------------------------------------------- */
+.fi-btn-primary,
+button[type="submit"].fi-btn {
+    background: linear-gradient(135deg, #0EA5E9, #0284C7) !important;
+    border: none !important;
+    color: #FFFFFF !important;
+    font-weight: 700 !important;
+    border-radius: 10px !important;
+    box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3) !important;
+    transition: all 0.15s ease !important;
+}
+
+.fi-btn-primary:hover,
+button[type="submit"].fi-btn:hover {
+    box-shadow: 0 4px 14px rgba(14, 165, 233, 0.4) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Action buttons (Modifier, etc.) — sky blue text */
+.fi-link,
+.fi-ta-actions .fi-link {
+    color: #0EA5E9 !important;
+    font-weight: 600 !important;
+}
+
+.fi-link:hover {
+    color: #0284C7 !important;
+}
+
+/* -----------------------------------------------------------------
+   FORM INPUTS
+   ----------------------------------------------------------------- */
+.fi-input:focus-within {
+    border-color: #0EA5E9 !important;
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1) !important;
+}
+
+/* -----------------------------------------------------------------
+   CHART WIDGET
+   ----------------------------------------------------------------- */
+.fi-wi-chart {
+    background: #FFFFFF !important;
+    border: 1px solid #E2E8F0 !important;
+    border-radius: 14px !important;
+    box-shadow: none !important;
+}
+
+.fi-wi-chart-heading {
+    font-weight: 700 !important;
+    color: #0F172A !important;
+}
+
+/* -----------------------------------------------------------------
+   LOGIN PAGE — Dark navy
+   ----------------------------------------------------------------- */
+.fi-simple-main {
+    background: linear-gradient(160deg, #0F172A 0%, #1E293B 50%, #0F172A 100%) !important;
+}
+
+.fi-simple-main .fi-simple-page {
+    background: #FFFFFF !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35) !important;
+}
+
+.fi-simple-main .fi-logo,
+.fi-simple-main [class*="brand"] {
+    color: #94A3B8 !important;
+}
+
+.fi-simple-main .fi-btn-primary {
+    width: 100% !important;
+    padding: 12px !important;
+    font-size: 0.875rem !important;
+}
+
+/* -----------------------------------------------------------------
+   MODALS
+   ----------------------------------------------------------------- */
+.fi-modal-window {
+    border-radius: 14px !important;
+}
+
+/* -----------------------------------------------------------------
+   PAGINATION
+   ----------------------------------------------------------------- */
+.fi-pagination-item-btn[aria-current="page"] {
+    background: #0EA5E9 !important;
+    color: #FFFFFF !important;
+    font-weight: 700 !important;
+}
+
+/* -----------------------------------------------------------------
+   BREADCRUMBS
+   ----------------------------------------------------------------- */
+.fi-breadcrumbs-item {
+    color: #94A3B8 !important;
+    font-weight: 500 !important;
+}
+
+.fi-breadcrumbs-item:last-child {
+    color: #334155 !important;
+    font-weight: 600 !important;
+}
+
+/* -----------------------------------------------------------------
+   CUSTOM COMPONENTS
+   ----------------------------------------------------------------- */
+.oon-avatar {
+    width: 34px; height: 34px; border-radius: 8px;
+    background: linear-gradient(135deg, #0EA5E9, #0284C7);
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: 800; font-size: 0.8125rem; flex-shrink: 0;
+}
+
+.oon-progress-wrap { display: flex; align-items: center; gap: 6px; }
+.oon-progress-track { flex: 1; height: 5px; background: #E2E8F0; border-radius: 3px; overflow: hidden; }
+.oon-progress-fill { height: 100%; background: linear-gradient(90deg, #0EA5E9, #06B6D4); border-radius: 3px; }
+.oon-progress-pct { font-size: 0.625rem; font-weight: 700; color: #64748B; min-width: 32px; text-align: right; }
+
+.oon-pill { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.625rem; font-weight: 700; }
+.oon-pill-critical { background: #FEE2E2; color: #B91C1C; }
+.oon-pill-high     { background: #FEF3C7; color: #92400E; }
+.oon-pill-medium   { background: #FEF9C3; color: #A16207; }
+.oon-pill-low      { background: #DCFCE7; color: #15803D; }
+
+.badge-active  { background: #DCFCE7; color: #15803D; }
+.badge-pending { background: #FEF3C7; color: #92400E; }
+.badge-danger  { background: #FEE2E2; color: #B91C1C; }
+.badge-paused  { background: #F1F5F9; color: #475569; }

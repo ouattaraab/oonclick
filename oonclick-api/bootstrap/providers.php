@@ -2,7 +2,9 @@
 
 return [
     App\Providers\AppServiceProvider::class,
-    App\Providers\Filament\AdminPanelProvider::class,
+    // Filament panels disabled — replaced by custom Blade panel at /panel/*
+    // App\Providers\Filament\AdminPanelProvider::class,
+    // App\Providers\Filament\AdvertiserPanelProvider::class,
     App\Providers\ModuleServiceProvider::class,
     App\Modules\Auth\AuthServiceProvider::class,
     App\Modules\Campaign\CampaignServiceProvider::class,

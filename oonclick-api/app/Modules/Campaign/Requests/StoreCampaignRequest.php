@@ -3,6 +3,7 @@
 namespace App\Modules\Campaign\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreCampaignRequest extends FormRequest
 {
@@ -16,7 +17,8 @@ class StoreCampaignRequest extends FormRequest
         return [
             'title'                  => ['required', 'string', 'max:150'],
             'description'            => ['nullable', 'string', 'max:1000'],
-            'format'                 => ['required', 'in:video,scratch,quiz,flash'],
+            'format'                 => ['required', 'string', Rule::exists('campaign_formats', 'slug')->where('is_active', true)],
+            'end_mode'               => ['nullable', 'in:date,target_reached,manual'],
             'budget'                 => ['required', 'integer', 'min:5000'],
             'cost_per_view'          => ['nullable', 'integer', 'min:100', 'max:500'],
             'starts_at'              => ['nullable', 'date', 'after:now'],
@@ -41,7 +43,8 @@ class StoreCampaignRequest extends FormRequest
             'title.max'                    => 'Le titre ne peut pas dépasser 150 caractères.',
             'description.max'              => 'La description ne peut pas dépasser 1000 caractères.',
             'format.required'              => 'Le format est requis.',
-            'format.in'                    => 'Le format doit être : video, scratch, quiz ou flash.',
+            'format.exists'                => 'Le format sélectionné est invalide ou inactif.',
+            'end_mode.in'                  => 'Le mode de fin doit être : date, target_reached ou manual.',
             'budget.required'              => 'Le budget est requis.',
             'budget.integer'               => 'Le budget doit être un entier.',
             'budget.min'                   => 'Le budget minimum est de 5 000 FCFA.',

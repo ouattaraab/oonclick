@@ -22,12 +22,14 @@ class SubscriberProfile extends Model
         'referral_code',
         'referred_by',
         'profile_completed_at',
+        'custom_fields',
     ];
 
     protected function casts(): array
     {
         return [
             'interests'             => 'array',
+            'custom_fields'         => 'array',
             'date_of_birth'         => 'date',
             'profile_completed_at'  => 'datetime',
         ];

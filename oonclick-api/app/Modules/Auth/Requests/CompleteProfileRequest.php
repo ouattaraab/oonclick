@@ -17,9 +17,9 @@ class CompleteProfileRequest extends FormRequest
             'first_name'    => ['required', 'string', 'max:50'],
             'last_name'     => ['required', 'string', 'max:50'],
             'gender'        => ['required', 'in:male,female,other'],
-            'date_of_birth' => ['required', 'date', 'before:today', 'after:1900-01-01'],
+            'date_of_birth' => ['nullable', 'date', 'before:today', 'after:1900-01-01'],
             'city'          => ['required', 'string', 'max:100'],
-            'operator'      => ['required', 'in:mtn,moov,orange,other'],
+            'operator'      => ['nullable', 'in:mtn,moov,orange,other'],
             'interests'     => ['nullable', 'array', 'max:10'],
             'interests.*'   => ['string', 'max:50'],
         ];

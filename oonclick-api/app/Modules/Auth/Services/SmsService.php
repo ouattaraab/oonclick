@@ -21,8 +21,8 @@ class SmsService
         $message = "Votre code oon.click est : {$code}. Valable 10 minutes.";
 
         // En mode sandbox/local : logger le code au lieu d'envoyer
-        if (app()->environment('local')) {
-            Log::info("OTP [{$phone}]: {$code}");
+        if (app()->environment('local') && config('app.debug')) {
+            Log::channel('stderr')->debug("OTP [{$phone}]: {$code}");
             return true;
         }
 
@@ -38,8 +38,8 @@ class SmsService
      */
     private function send(string $phone, string $message): bool
     {
-        $apiKey   = env('AT_API_KEY');
-        $username = env('AT_USERNAME', 'sandbox');
+        $apiKey   = config('oonclick.sms.api_key');
+        $username = config('oonclick.sms.username', 'sandbox');
 
         $response = Http::withHeaders([
             'apiKey' => $apiKey,

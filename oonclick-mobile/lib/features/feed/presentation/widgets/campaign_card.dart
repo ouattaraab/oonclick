@@ -1,14 +1,14 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../data/models/campaign_model.dart';
 
-/// Card widget that represents a single campaign in the feed list.
+/// Card widget for a single campaign in the feed list.
 ///
-/// Shows thumbnail with gradient overlay, format badge, title and
-/// the FCFA amount the user will earn.
+/// White card with colored emoji icon (38×38 rounded), brand label (muted),
+/// title (navy 11.5px), duration chip (skyPale), earn badge (sky gradient).
 class CampaignCard extends StatelessWidget {
   const CampaignCard({
     super.key,
@@ -19,90 +19,121 @@ class CampaignCard extends StatelessWidget {
   final CampaignModel campaign;
   final VoidCallback onTap;
 
+  String _formatLabel(String format) {
+    return switch (format) {
+      'video' => 'Vidéo',
+      'image' => 'Image',
+      'scratch' => 'Grattage',
+      'quiz' => 'Quiz',
+      'flash' => 'Flash',
+      _ => format,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppTheme.bgCard,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.divider),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withAlpha(10),
+              color: AppColors.sky.withAlpha(15),
               blurRadius: 8,
-              offset: const Offset(0, 2),
+              offset: const Offset(0, 3),
             ),
           ],
         ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Thumbnail
-            _ThumbnailSection(campaign: campaign),
+            // Emoji icon background
+            _CampaignIcon(format: campaign.format),
+            const SizedBox(width: 12),
 
-            // Info row
-            Padding(
-              padding: const EdgeInsets.all(14),
+            // Content
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Format label as brand
+                  Text(
+                    _formatLabel(campaign.format).toUpperCase(),
+                    style: GoogleFonts.nunito(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.muted,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+
+                  // Title
                   Text(
                     campaign.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: GoogleFonts.nunito(
+                      fontSize: 11.5,
                       fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                      color: AppTheme.textPrimary,
-                      height: 1.3,
+                      color: AppColors.navy,
+                      height: 1.35,
                     ),
                   ),
                   const SizedBox(height: 10),
+
+                  // Bottom row: duration + earn badge
                   Row(
                     children: [
                       // Duration chip
-                      _InfoChip(
-                        icon: Icons.timer_outlined,
-                        label: Formatters.duration(
-                            campaign.durationSeconds),
-                        color: AppTheme.textSecondary,
-                      ),
-                      const Spacer(),
-                      // Earn badge
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 5),
+                            horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: AppTheme.successLight,
-                          borderRadius: BorderRadius.circular(20),
+                          color: AppColors.skyPale,
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const Icon(
-                              Icons.monetization_on_rounded,
-                              size: 14,
-                              color: AppTheme.success,
+                              Icons.timer_outlined,
+                              size: 12,
+                              color: AppColors.sky2,
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 3),
                             Text(
-                              Formatters.currency(campaign.amount),
-                              style: const TextStyle(
-                                color: AppTheme.success,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 13,
+                              Formatters.duration(campaign.durationSeconds),
+                              style: GoogleFonts.nunito(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.sky2,
                               ),
                             ),
                           ],
                         ),
                       ),
+
+                      const Spacer(),
+
+                      // Earn badge (gradient)
+                      _EarnBadge(amount: campaign.amount),
                     ],
                   ),
                 ],
               ),
+            ),
+
+            // Play arrow
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.play_circle_filled_rounded,
+              color: AppColors.sky,
+              size: 28,
             ),
           ],
         ),
@@ -112,206 +143,87 @@ class CampaignCard extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Thumbnail with gradient overlay and format badge
+// Campaign icon with emoji background
 // ---------------------------------------------------------------------------
 
-class _ThumbnailSection extends StatelessWidget {
-  const _ThumbnailSection({required this.campaign});
+class _CampaignIcon extends StatelessWidget {
+  const _CampaignIcon({required this.format});
 
-  final CampaignModel campaign;
+  final String format;
+
+  String get _emoji {
+    return switch (format) {
+      'video'   => '📺',
+      'image'   => '🖼️',
+      'scratch' => '🎰',
+      'quiz'    => '📝',
+      'flash'   => '⚡',
+      _         => '📣',
+    };
+  }
+
+  Color get _bgColor {
+    return switch (format) {
+      'video'   => const Color(0xFFEBF7FE),
+      'image'   => const Color(0xFFD1FAE5),
+      'scratch' => const Color(0xFFF3E8FF),
+      'quiz'    => const Color(0xFFEEF2FF),
+      'flash'   => const Color(0xFFFEF3C7),
+      _         => const Color(0xFFF0F8FF),
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 16 / 9,
-      child: Stack(
-        fit: StackFit.expand,
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: _bgColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Center(
+        child: Text(
+          _emoji,
+          style: const TextStyle(fontSize: 22),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Earn badge with sky gradient
+// ---------------------------------------------------------------------------
+
+class _EarnBadge extends StatelessWidget {
+  const _EarnBadge({required this.amount});
+
+  final int amount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        gradient: AppColors.skyGradient,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Background image
-          if (campaign.thumbnailUrl != null)
-            CachedNetworkImage(
-              imageUrl: campaign.thumbnailUrl!,
-              fit: BoxFit.cover,
-              placeholder: (ctx, prog) => Container(
-                color: AppTheme.bgPage,
-                child: const Center(
-                  child: Icon(
-                    Icons.image_outlined,
-                    color: AppTheme.textHint,
-                    size: 40,
-                  ),
-                ),
-              ),
-              errorWidget: (ctx, url, err) => _ThumbnailFallback(
-                  format: campaign.format),
-            )
-          else
-            _ThumbnailFallback(format: campaign.format),
-
-          // Bottom gradient
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: const [0.5, 1.0],
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withAlpha(160),
-                  ],
-                ),
-              ),
+          const Text('💰', style: TextStyle(fontSize: 11)),
+          const SizedBox(width: 4),
+          Text(
+            '+${Formatters.currency(amount)}',
+            style: GoogleFonts.nunito(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
             ),
-          ),
-
-          // Play icon overlay
-          Center(
-            child: Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.white.withAlpha(200),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.play_arrow_rounded,
-                color: AppTheme.primary,
-                size: 30,
-              ),
-            ),
-          ),
-
-          // Format badge (top-left)
-          Positioned(
-            top: 10,
-            left: 10,
-            child: _FormatBadge(format: campaign.format),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _ThumbnailFallback extends StatelessWidget {
-  const _ThumbnailFallback({required this.format});
-
-  final String format;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: _formatBgColor(format),
-      child: Center(
-        child: Icon(
-          _formatIcon(format),
-          size: 48,
-          color: Colors.white.withAlpha(180),
-        ),
-      ),
-    );
-  }
-
-  Color _formatBgColor(String format) {
-    return switch (format) {
-      'scratch' => const Color(0xFF8B5CF6),
-      'quiz' => const Color(0xFF3B82F6),
-      'flash' => const Color(0xFFF59E0B),
-      _ => const Color(0xFF374151),
-    };
-  }
-
-  IconData _formatIcon(String format) {
-    return switch (format) {
-      'scratch' => Icons.back_hand_outlined,
-      'quiz' => Icons.quiz_outlined,
-      'flash' => Icons.bolt_rounded,
-      _ => Icons.play_circle_outline_rounded,
-    };
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Format badge
-// ---------------------------------------------------------------------------
-
-class _FormatBadge extends StatelessWidget {
-  const _FormatBadge({required this.format});
-
-  final String format;
-
-  static const _labels = {
-    'video': 'Vidéo',
-    'scratch': 'Grattage',
-    'quiz': 'Quiz',
-    'flash': 'Flash',
-  };
-
-  static const _colors = {
-    'video': Color(0xFF374151),
-    'scratch': Color(0xFF8B5CF6),
-    'quiz': Color(0xFF3B82F6),
-    'flash': Color(0xFFF59E0B),
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    final color =
-        _colors[format] ?? const Color(0xFF374151);
-    final label = _labels[format] ?? format;
-
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.3,
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Small info chip
-// ---------------------------------------------------------------------------
-
-class _InfoChip extends StatelessWidget {
-  const _InfoChip({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: color),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: color,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
     );
   }
 }

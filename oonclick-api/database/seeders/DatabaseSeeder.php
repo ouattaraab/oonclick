@@ -13,6 +13,9 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             PlatformConfigSeeder::class,
+            CampaignFormatSeeder::class,
+            AudienceCriteriaSeeder::class,
+            FeatureSettingsSeeder::class,
         ]);
     }
 }

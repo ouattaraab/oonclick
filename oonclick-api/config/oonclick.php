@@ -78,4 +78,15 @@ return [
         'base_url'        => 'https://api.paystack.co',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | SMS (Africa's Talking)
+    |--------------------------------------------------------------------------
+    */
+    'sms' => [
+        'provider'  => env('SMS_PROVIDER', 'africastalking'),
+        'api_key'   => env('AT_API_KEY'),
+        'username'  => env('AT_USERNAME', 'sandbox'),
+    ],
+
 ];

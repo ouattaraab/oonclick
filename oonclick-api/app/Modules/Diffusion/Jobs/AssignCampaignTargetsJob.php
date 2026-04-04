@@ -197,6 +197,43 @@ class AssignCampaignTargetsJob implements ShouldQueue
             }
         }
 
+        // Dynamic criteria stored in subscriber_profiles.custom_fields
+        $dynamicCriteria = \App\Models\AudienceCriterion::getActiveCriteria()
+            ->filter(fn ($c) => $c->storage_column === null);
+
+        $customFields = $profile->custom_fields ?? [];
+
+        foreach ($dynamicCriteria as $criterion) {
+            $targetValue = $targeting[$criterion->name] ?? null;
+            if ($targetValue === null) {
+                continue;
+            }
+
+            $profileValue = $customFields[$criterion->name] ?? null;
+            if ($profileValue === null) {
+                return false;
+            }
+
+            $matches = match ($criterion->type) {
+                'select' => is_array($targetValue)
+                    ? in_array(strtolower((string) $profileValue), array_map('strtolower', $targetValue), true)
+                    : strtolower((string) $profileValue) === strtolower((string) $targetValue),
+                'multiselect' => ! empty(array_intersect(
+                    array_map('strtolower', (array) $profileValue),
+                    array_map('strtolower', (array) $targetValue)
+                )),
+                'text' => is_array($targetValue)
+                    ? in_array(strtolower((string) $profileValue), array_map('strtolower', $targetValue), true)
+                    : str_contains(strtolower((string) $profileValue), strtolower((string) $targetValue)),
+                'boolean' => (bool) $profileValue === (bool) $targetValue,
+                default   => true,
+            };
+
+            if (! $matches) {
+                return false;
+            }
+        }
+
         return true;
     }
 

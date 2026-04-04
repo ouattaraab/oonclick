@@ -1,0 +1,111 @@
+name: Deploy API
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: production
+        type: choice
+        options:
+          - production
+          - staging
+  push:
+    branches:
+      - main
+    paths:
+      - 'oonclick-api/**'
+
+concurrency:
+  group: deploy-api-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy Laravel API to Hostinger
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ------------------------------------------------------------------
+      # Install sshpass so we can use password-based SSH when needed.
+      # We prefer key-based auth (HOSTINGER_SSH_KEY) but keep this as
+      # a safety net for environments that do not support keys.
+      # ------------------------------------------------------------------
+      - name: Install SSH client
+        run: sudo apt-get install -y openssh-client
+
+      - name: Configure SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.HOSTINGER_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.HOSTINGER_SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Deploy to Hostinger shared hosting
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+              -o StrictHostKeyChecking=no \
+              "${{ secrets.HOSTINGER_SSH_USER }}@${{ secrets.HOSTINGER_SSH_HOST }}" \
+              "bash -s" << 'REMOTE_SCRIPT'
+            set -e
+
+            echo "==> Navigating to project directory"
+            cd "${{ secrets.HOSTINGER_SSH_PATH }}"
+
+            echo "==> Enabling maintenance mode"
+            php artisan down --retry=60 || true
+
+            echo "==> Pulling latest changes"
+            git pull origin main
+
+            echo "==> Installing Composer dependencies (no dev)"
+            composer install \
+              --no-interaction \
+              --no-dev \
+              --prefer-dist \
+              --optimize-autoloader
+
+            echo "==> Running database migrations"
+            php artisan migrate --force
+
+            echo "==> Clearing and re-caching configuration"
+            php artisan config:clear
+            php artisan config:cache
+
+            echo "==> Clearing and re-caching routes"
+            php artisan route:clear
+            php artisan route:cache
+
+            echo "==> Clearing and re-caching views"
+            php artisan view:clear
+            php artisan view:cache
+
+            echo "==> Clearing application cache"
+            php artisan cache:clear
+
+            echo "==> Restarting queue workers"
+            php artisan queue:restart
+
+            echo "==> Disabling maintenance mode"
+            php artisan up
+
+            echo "==> Deployment complete"
+          REMOTE_SCRIPT
+
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "API deployment to ${{ github.event.inputs.environment || 'production' }} succeeded."
+          echo "Commit: ${{ github.sha }}"
+
+      - name: Notify deployment failure
+        if: failure()
+        run: |
+          echo "API deployment FAILED for commit ${{ github.sha }}."
+          echo "Check the logs and re-run after fixing the issue."
+          exit 1

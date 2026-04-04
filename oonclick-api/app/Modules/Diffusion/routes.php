@@ -14,5 +14,12 @@ Route::prefix('api')->middleware(['api', 'auth:sanctum'])->group(function () {
 
         // Marquer une publicité comme complètement visionnée
         Route::post('/ads/{id}/complete', [DiffusionController::class, 'complete']);
+
+        // Historique des pubs regardées
+        Route::get('/ads/history',   [DiffusionController::class, 'history']);
+
+        // Mode hors-ligne partiel (Feature 7)
+        Route::get('/feed/preload',  [DiffusionController::class, 'preload']);
+        Route::post('/feed/sync',    [DiffusionController::class, 'sync']);
     });
 });
