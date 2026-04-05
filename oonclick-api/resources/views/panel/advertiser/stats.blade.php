@@ -101,10 +101,10 @@ document.addEventListener('DOMContentLoaded', function () {
     new Chart(ctx, {
         type: 'line',
         data: {
-            labels: {!! json_encode($chartLabels) !!},
+            labels: @json($chartLabels),
             datasets: [{
                 label: 'Vues',
-                data: {!! json_encode($chartData) !!},
+                data: @json($chartData),
                 borderColor: '#3B82F6',
                 backgroundColor: gradient,
                 borderWidth: 2.5,

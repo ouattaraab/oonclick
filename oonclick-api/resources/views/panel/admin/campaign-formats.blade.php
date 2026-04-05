@@ -150,7 +150,7 @@
                 </tr>
 
                 {{-- Hidden edit data for JS --}}
-                <script type="application/json" id="format-data-{{ $format->id }}">{!! json_encode(['id' => $format->id, 'slug' => $format->slug, 'label' => $format->label, 'description' => $format->description ?? '', 'icon' => $format->icon ?? '', 'multiplier' => $format->multiplier, 'default_duration' => $format->default_duration, 'accepted_media' => $format->accepted_media ?? [], 'is_active' => $format->is_active, 'sort_order' => $format->sort_order ?? 0], JSON_UNESCAPED_UNICODE) !!}</script>
+                <script type="application/json" id="format-data-{{ $format->id }}">@json(['id' => $format->id, 'slug' => $format->slug, 'label' => $format->label, 'description' => $format->description ?? '', 'icon' => $format->icon ?? '', 'multiplier' => $format->multiplier, 'default_duration' => $format->default_duration, 'accepted_media' => $format->accepted_media ?? [], 'is_active' => $format->is_active, 'sort_order' => $format->sort_order ?? 0])</script>
                 @endforeach
             </tbody>
         </table>

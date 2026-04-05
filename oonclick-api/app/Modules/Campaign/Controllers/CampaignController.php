@@ -50,11 +50,14 @@ class CampaignController extends Controller
             $query->where('advertiser_id', $user->id);
         }
 
-        if ($request->filled('status')) {
+        $allowedStatuses = ['draft', 'pending_review', 'active', 'paused', 'completed', 'rejected', 'expired'];
+        $allowedFormats  = ['video', 'flash', 'quiz', 'scratch', 'photo', 'audio', 'text'];
+
+        if ($request->filled('status') && in_array($request->query('status'), $allowedStatuses, true)) {
             $query->where('status', $request->query('status'));
         }
 
-        if ($request->filled('format')) {
+        if ($request->filled('format') && in_array($request->query('format'), $allowedFormats, true)) {
             $query->where('format', $request->query('format'));
         }
 
@@ -160,10 +163,8 @@ class CampaignController extends Controller
             $mediaFile = $request->file('media');
             $this->campaignService->uploadMedia($campaign, $mediaFile, 'media');
 
-            // Tenter d'extraire la durée via ffprobe (optionnel)
-            if (in_array($mediaFile->getClientOriginalExtension(), ['mp4', 'mov', 'avi', 'webm'])) {
-                $this->tryExtractDuration($campaign, $mediaFile->getRealPath());
-            }
+            // Set duration from format defaults; video duration is determined client-side.
+            $this->applyDefaultDuration($campaign);
         }
 
         if ($request->hasFile('thumbnail')) {
@@ -279,30 +280,32 @@ class CampaignController extends Controller
     }
 
     /**
-     * Tente d'extraire la durée d'une vidéo via ffprobe et met à jour la campagne.
-     * L'opération est silencieuse si ffprobe est absent ou échoue.
+     * Sets duration_seconds from the campaign format's default_duration for
+     * image-based formats (flash, photo, scratch).  For video formats the
+     * duration is unknown server-side without ffprobe, so we leave the field
+     * unchanged and let the client report it after playback.
+     *
+     * No shell commands are executed here.
      */
-    private function tryExtractDuration(Campaign $campaign, string $filePath): void
+    private function applyDefaultDuration(Campaign $campaign): void
     {
-        $ffprobe = trim(shell_exec('which ffprobe 2>/dev/null') ?? '');
+        // Image-based formats have a fixed server-side default duration.
+        $imageFormats = ['flash', 'photo', 'scratch'];
 
-        if (empty($ffprobe)) {
+        if (in_array($campaign->format, $imageFormats, true)) {
+            $defaultDuration = $campaign->campaignFormat?->default_duration;
+
+            if ($defaultDuration && $defaultDuration > 0) {
+                $campaign->duration_seconds = (int) $defaultDuration;
+                $campaign->save();
+            }
+
             return;
         }
 
-        $output = shell_exec(
-            sprintf(
-                '%s -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 %s 2>/dev/null',
-                escapeshellcmd($ffprobe),
-                escapeshellarg($filePath)
-            )
-        );
-
-        $duration = $output ? (int) round((float) trim($output)) : null;
-
-        if ($duration && $duration > 0) {
-            $campaign->duration_seconds = $duration;
-            $campaign->save();
-        }
+        // For video (and other streaming formats) duration is determined by
+        // the client after the file has been downloaded and played.
+        // Nothing to do here — duration_seconds stays null until the client
+        // sends it back via the update endpoint.
     }
 }

@@ -161,10 +161,10 @@
     new Chart(ctx, {
         type: 'line',
         data: {
-            labels: {!! json_encode($chartLabels) !!},
+            labels: @json($chartLabels),
             datasets: [{
                 label: 'Vues',
-                data: {!! json_encode($chartData) !!},
+                data: @json($chartData),
                 borderColor: '#0EA5E9',
                 backgroundColor: gradient,
                 borderWidth: 2.5,

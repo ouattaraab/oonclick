@@ -125,7 +125,7 @@
 
                 {{-- Config JSON data for JS --}}
                 <script type="application/json" id="feature-config-{{ $feature->id }}">
-                {!! json_encode($feature->config ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) !!}
+                @json($feature->config ?? [])
                 </script>
                 @endforeach
             </tbody>

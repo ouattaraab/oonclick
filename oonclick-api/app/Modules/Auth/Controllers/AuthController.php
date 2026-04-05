@@ -530,10 +530,70 @@ class AuthController extends Controller
     /**
      * Vérifie un Firebase ID token via l'API Google.
      *
+     * Validation en deux étapes :
+     * 1. Pré-validation locale du JWT (structure, audience, expiration) — rejet
+     *    immédiat sans appel réseau si le token est manifestement invalide.
+     * 2. Vérification auprès de l'API Google accounts:lookup comme source de
+     *    vérité finale (signature, révocation, existence du compte).
+     *
      * @return array|null Les données de l'utilisateur Firebase, ou null si invalide.
      */
     private function verifyFirebaseIdToken(string $idToken): ?array
     {
+        // ------------------------------------------------------------------
+        // Étape 1 : pré-validation locale du JWT (sans paquet externe)
+        // ------------------------------------------------------------------
+
+        // 1a. Structure : exactement 3 segments séparés par des points
+        $parts = explode('.', $idToken);
+        if (count($parts) !== 3) {
+            Log::warning('Firebase ID token: invalid JWT structure (expected 3 parts).');
+            return null;
+        }
+
+        // 1b. Décoder le payload (2e segment, base64url sans padding)
+        $payloadJson = base64_decode(strtr($parts[1], '-_', '+/'), true);
+        if ($payloadJson === false) {
+            Log::warning('Firebase ID token: payload base64 decoding failed.');
+            return null;
+        }
+
+        $payload = json_decode($payloadJson, true);
+        if (! is_array($payload)) {
+            Log::warning('Firebase ID token: payload JSON decoding failed.');
+            return null;
+        }
+
+        // 1c. Vérifier le claim `aud` (audience = Firebase project ID)
+        $expectedProjectId = config('services.firebase.project_id', config('firebase.project_id', ''));
+        $aud = $payload['aud'] ?? null;
+        // `aud` peut être une chaîne ou un tableau selon la spec JWT
+        $audMatches = is_array($aud)
+            ? in_array($expectedProjectId, $aud, true)
+            : ($aud === $expectedProjectId);
+
+        if ($expectedProjectId !== '' && ! $audMatches) {
+            Log::warning('Firebase ID token: audience mismatch.', [
+                'expected' => $expectedProjectId,
+                'received' => $aud,
+            ]);
+            return null;
+        }
+
+        // 1d. Vérifier le claim `exp` (expiration)
+        $exp = $payload['exp'] ?? null;
+        if (! is_numeric($exp) || (int) $exp <= time()) {
+            Log::warning('Firebase ID token: token expired or missing exp claim.', [
+                'exp' => $exp,
+                'now' => time(),
+            ]);
+            return null;
+        }
+
+        // ------------------------------------------------------------------
+        // Étape 2 : vérification auprès de l'API Google (source de vérité)
+        // ------------------------------------------------------------------
+
         try {
             $url = 'https://identitytoolkit.googleapis.com/v1/accounts:lookup?key='
                 . config('services.firebase.api_key', config('firebase.api_key', ''));

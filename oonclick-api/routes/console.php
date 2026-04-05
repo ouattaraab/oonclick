@@ -8,6 +8,13 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+// Traitement des jobs en file d'attente — remplace le worker persistant sur
+// Hostinger (hébergement mutualisé sans process daemons).
+// --stop-when-empty : s'arrête dès que la queue est vide.
+// --max-time=55     : force l'arrêt après 55 s pour libérer avant la prochaine minute.
+// withoutOverlapping: évite les exécutions concurrentes si la cron est lente.
+Schedule::command('queue:work --stop-when-empty --max-time=55')->everyMinute()->withoutOverlapping();
+
 Schedule::command('oonclick:daily-stats')->dailyAt('08:00');
 Schedule::command('queue:prune-failed --hours=72')->daily();
 

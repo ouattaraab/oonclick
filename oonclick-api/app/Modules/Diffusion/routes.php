@@ -10,10 +10,10 @@ Route::prefix('api')->middleware(['api', 'auth:sanctum'])->group(function () {
         Route::get('/feed',               [DiffusionController::class, 'feed']);
 
         // Démarrer la visualisation d'une publicité
-        Route::post('/ads/{id}/start',    [DiffusionController::class, 'start']);
+        Route::post('/ads/{id}/start',    [DiffusionController::class, 'start'])->middleware('throttle:30,1');
 
         // Marquer une publicité comme complètement visionnée
-        Route::post('/ads/{id}/complete', [DiffusionController::class, 'complete']);
+        Route::post('/ads/{id}/complete', [DiffusionController::class, 'complete'])->middleware('throttle:30,1');
 
         // Historique des pubs regardées
         Route::get('/ads/history',   [DiffusionController::class, 'history']);
